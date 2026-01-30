@@ -49,7 +49,7 @@ export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCanc
     setQuestions(questions.filter((_, i) => i !== index));
   };
 
-  const handleQuestionChange = (index: number, field: string, value: any) => {
+  const handleQuestionChange = (qIndex: number, field: string, value: any) => {
     console.log(`[FORM] Question ${qIndex} field '${field}' changed to:`, value);
     const updated = [...questions];
     (updated[qIndex] as any)[field] = value;
