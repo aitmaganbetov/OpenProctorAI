@@ -1,0 +1,16 @@
+# Секретные данные и конфиги
+config.py
+.env
+
+# Python (кэш и временные файлы)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Docker
+.dockerignore
+
+# Логи сервера
+*.log
