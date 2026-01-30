@@ -5,6 +5,9 @@ from sqlalchemy import text
 from app.db.database import get_db, engine
 from app.models.models import Base
 from app.api.routes import api_router
+from app.db.database import SessionLocal
+from app.models.models import User, UserRole
+from sqlalchemy.exc import SQLAlchemyError
 
 # Создаем таблицы автоматически (для Dev режима, в Проде нужен Alembic)
 Base.metadata.create_all(bind=engine)
@@ -22,6 +25,26 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router)
+
+# Seed a demo teacher user if none exists (dev convenience)
+def seed_demo_user():
+    db = SessionLocal()
+    try:
+        teacher = db.query(User).filter(User.role == UserRole.TEACHER).first()
+        if not teacher:
+            demo = User(email="teacher@university.edu", hashed_password="password123", full_name="Demo Teacher", role=UserRole.TEACHER)
+            db.add(demo)
+        student = db.query(User).filter(User.role == UserRole.STUDENT).first()
+        if not student:
+            demo_student = User(email="student@university.edu", hashed_password="password123", full_name="Demo Student", role=UserRole.STUDENT)
+            db.add(demo_student)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+    finally:
+        db.close()
+
+seed_demo_user()
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):

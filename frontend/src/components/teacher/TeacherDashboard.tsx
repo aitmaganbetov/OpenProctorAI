@@ -10,15 +10,23 @@ export const TeacherDashboard: React.FC = () => {
   const [sessions, setSessions] = useState<ExamSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [selectedSession, setSelectedSession] = useState<ExamSession | null>(null);
-  const [activeTab, setActiveTab] = useState<'exams' | 'results'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'results' | 'assignments'>('exams');
+  const [assignments, setAssignments] = useState<any[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const examsData = await api.getExams();
         setExams(examsData);
-        // TODO: Load sessions from API
+        // Load assignments
+        try {
+          const assignmentsData = await api.getAssignments();
+          setAssignments(assignmentsData);
+        } catch (err) {
+          console.warn('Could not load assignments:', err);
+        }
       } catch (error) {
         console.error('Failed to load exams:', error);
       } finally {
@@ -31,8 +39,10 @@ export const TeacherDashboard: React.FC = () => {
 
   const handleCreateExam = async (examData: Partial<Exam>) => {
     try {
-      const newExam = await api.createExam(examData);
-      setExams([...exams, newExam]);
+      await api.createExam(examData);
+      // Refresh the exams list from server to reflect persisted data
+      const examsData = await api.getExams();
+      setExams(examsData);
       setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create exam:', error);
@@ -69,8 +79,20 @@ export const TeacherDashboard: React.FC = () => {
         {showCreateForm && (
           <div className="mb-8">
             <CreateExamForm
-              onSubmit={handleCreateExam}
-              onCancel={() => setShowCreateForm(false)}
+              initialExam={editingExam || undefined}
+              onSubmit={async (examData) => {
+                if (editingExam) {
+                  // update
+                  await api.putExam(editingExam.id as any, examData);
+                  const examsData = await api.getExams();
+                  setExams(examsData);
+                  setEditingExam(null);
+                  setShowCreateForm(false);
+                } else {
+                  await handleCreateExam(examData);
+                }
+              }}
+              onCancel={() => { setEditingExam(null); setShowCreateForm(false); }}
             />
           </div>
         )}
@@ -147,11 +169,40 @@ export const TeacherDashboard: React.FC = () => {
                   <button className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors">
                     View Details
                   </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const email = prompt('Enter student email to assign this exam:');
+                        if (!email) return;
+                        try {
+                          await api.assignExam(exam.id as any, { student_email: email });
+                          alert('Assigned successfully');
+                        } catch (err) {
+                          console.error(err);
+                          alert('Assign failed');
+                        }
+                      }}
+                      className="px-3 py-2 bg-emerald-600 text-white rounded-md text-sm"
+                    >
+                      Assign
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingExam(exam);
+                        setShowCreateForm(true);
+                      }}
+                      className="px-3 py-2 bg-yellow-600 text-white rounded-md text-sm"
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </div>
               ))
             )}
           </div>
-        ) : (
+        ) : activeTab === 'results' ? (
           // Results Table
           <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div className="overflow-x-auto">
@@ -205,6 +256,44 @@ export const TeacherDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        ) : (
+          // Assignments view
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Assignments</h3>
+            {assignments.length === 0 ? (
+              <div className="text-gray-400">No assignments yet</div>
+            ) : (
+              <div className="space-y-4">
+                {assignments.map((a) => (
+                  <div key={a.id} className="p-4 bg-slate-700 rounded-md flex items-center justify-between">
+                    <div>
+                      <div className="text-white font-medium">{a.exam_title || `Exam ${a.exam_id}`}</div>
+                      <div className="text-sm text-gray-400">Student: {a.student_email || a.student_id}</div>
+                      <div className="text-sm text-gray-400">Assigned: {a.assigned_at || '—'}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Unassign this exam from student?')) return;
+                          try {
+                            await api.deleteAssignment(a.id);
+                            const newList = await api.getAssignments();
+                            setAssignments(newList);
+                          } catch (err) {
+                            console.error(err);
+                            alert('Failed to unassign');
+                          }
+                        }}
+                        className="px-3 py-2 bg-red-600 text-white rounded-md text-sm"
+                      >
+                        Unassign
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

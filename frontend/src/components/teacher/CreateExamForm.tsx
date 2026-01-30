@@ -4,12 +4,25 @@ import { Exam, Question } from '../../services/api';
 interface CreateExamFormProps {
   onSubmit: (exam: Partial<Exam>) => Promise<void>;
   onCancel: () => void;
+  initialExam?: Partial<Exam> | null;
 }
 
 export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCancel }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(60);
+  const initial = initialExam || null;
+
+  React.useEffect(() => {
+    if (initial) {
+      setTitle(initial.title || '');
+      setDescription(initial.description || '');
+      setDurationMinutes(initial.duration_minutes || 60);
+      if (initial.questions && initial.questions.length > 0) {
+        setQuestions(initial.questions as Partial<Question>[]);
+      }
+    }
+  }, [initial]);
   const [questions, setQuestions] = useState<Partial<Question>[]>([
     {
       text: '',

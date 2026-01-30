@@ -9,7 +9,7 @@
     {
       "type": "promptString",
       "id": "github_mcp_pat",
-      "description": "REMOVED_SECRET",
+      "description": "GitHub Personal Access Token (for MCP)",
       "password": true
     }
   ]

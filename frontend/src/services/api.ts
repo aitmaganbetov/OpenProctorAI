@@ -86,6 +86,16 @@ class ApiService {
     return this.post<Exam>('/exams', exam);
   }
 
+  async putExam(examId: number | string, exam: Partial<Exam>): Promise<Exam> {
+    const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exam),
+    });
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+    return response.json();
+  }
+
   async startExamSession(examId: string): Promise<ExamSession> {
     return this.post<ExamSession>(`/exams/sessions`, { exam_id: examId });
   }
@@ -99,6 +109,24 @@ class ApiService {
       session_id: sessionId,
       ...violation,
     });
+  }
+
+  async assignExam(examId: number | string, payload: { student_id?: number; student_email?: string; due_date?: string; }): Promise<any> {
+    return this.post(`/exams/${examId}/assign`, payload);
+  }
+
+  async getAssignments(): Promise<any[]> {
+    return this.get<any[]>('/assignments');
+  }
+
+  async getExamAssignments(examId: number | string): Promise<any[]> {
+    return this.get<any[]>(`/exams/${examId}/assignments`);
+  }
+
+  async deleteAssignment(assignmentId: number | string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/exams/assignments/${assignmentId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+    return response.json();
   }
 }
 

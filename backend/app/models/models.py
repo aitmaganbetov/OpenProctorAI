@@ -77,3 +77,16 @@ class AuditLog(Base):
     action = Column(String(255))
     details = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExamAssignment(Base):
+    __tablename__ = "exam_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exam_id = Column(Integer, ForeignKey("exams.id"), index=True, nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+    due_date = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(50), default="assigned")
+
+    # relationships omitted for brevity; can be added later if needed
