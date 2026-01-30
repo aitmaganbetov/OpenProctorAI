@@ -127,17 +127,37 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
             <h1 className="text-4xl font-bold text-white mb-2">Available Exams</h1>
             <p className="text-gray-400">Select an exam to begin. Make sure your environment is properly set up.</p>
           </div>
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Sign Out
-            </button>
-          )}
+          
+          <div className="flex items-center gap-4">
+            {/* Student Photo/Avatar */}
+            {hasPhoto && capturedPhotoBase64 ? (
+              <div className="relative">
+                <img
+                  src={`data:image/jpeg;base64,${capturedPhotoBase64}`}
+                  alt="Student ID"
+                  className="w-16 h-16 object-cover rounded-full border-2 border-blue-500 shadow-lg"
+                />
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 border-2 border-slate-500 flex items-center justify-center shadow-lg">
+                <svg className="w-8 h-8 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+              </div>
+            )}
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Loading State */}
