@@ -164,11 +164,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
                   <div className="p-6 border-b border-slate-700">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="text-xl font-bold text-white flex-1">{exam.title}</h3>
-                      {isCompleted && (
-                        <span className="px-3 py-1 bg-green-900/20 text-green-400 text-xs font-medium rounded-full ml-2">
-                          ✓ Completed
-                        </span>
-                      )}
+                      <div className="flex gap-2 ml-2">
+                        {exam.questions.length === 0 && (
+                          <span className="px-3 py-1 bg-yellow-900/20 text-yellow-400 text-xs font-medium rounded-full">
+                            ⚠️ No Questions
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="px-3 py-1 bg-green-900/20 text-green-400 text-xs font-medium rounded-full">
+                            ✓ Completed
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-gray-400 text-sm">{exam.description}</p>
                   </div>
@@ -198,14 +205,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
                     {/* Action Button */}
                     <button
                       onClick={() => handleExamSelect(exam)}
-                      disabled={isCompleted}
+                      disabled={isCompleted || exam.questions.length === 0}
                       className={`w-full py-3 font-medium rounded-lg transition-all ${
-                        isCompleted
+                        isCompleted || exam.questions.length === 0
                           ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                           : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
                       }`}
                     >
-                      {isCompleted ? 'Already Completed' : 'Start Exam'}
+                      {isCompleted ? 'Already Completed' : exam.questions.length === 0 ? 'No Questions' : 'Start Exam'}
                     </button>
                   </div>
                 </div>
