@@ -4,6 +4,7 @@ import { Exam } from '../../services/api';
 import api from '../../services/api';
 import { ExamInterface } from './ExamInterface';
 import { PhotoCapture } from '../PhotoCapture';
+import { ProfileSetup } from '../ProfileSetup';
 
 interface StudentDashboardProps {
   onLogout?: () => void;
@@ -16,7 +17,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [completedExams, setCompletedExams] = useState<string[]>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
-  const [hasPhoto, setHasPhoto] = useState(false);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [hasProfilePhoto, setHasProfilePhoto] = useState(false);
   const [showExamInterface, setShowExamInterface] = useState(false);
   const [capturedPhotoBase64, setCapturedPhotoBase64] = useState<string | null>(null);
 
@@ -34,11 +36,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
             const numericId = userInfo.id;
             setStudentId(numericId);
             
-            // Check if student has uploaded a photo
+            // Check if student has uploaded a profile photo
             try {
               const photoStatus = await api.checkStudentPhoto(numericId);
-              setHasPhoto(photoStatus.has_photo);
-              console.log('[DASHBOARD] Student photo status:', photoStatus);
+              setHasProfilePhoto(photoStatus.has_photo);
+              console.log('[DASHBOARD] Student profile photo status:', photoStatus);
+              
+              // If no profile photo, show profile setup first
+              if (!photoStatus.has_photo) {
+                setShowProfileSetup(true);
+              }
             } catch (err) {
               console.warn('Could not check photo status:', err);
             }
@@ -70,20 +77,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     setShowExamInterface(false);
   };
 
-  // Photo capture flow (required at beginning of each exam)
+  // Profile setup flow (required once at the beginning)
+  if (showProfileSetup && studentId && !hasProfilePhoto) {
+    return (
+      <ProfileSetup
+        studentId={studentId}
+        onComplete={() => {
+          console.log('[DASHBOARD] Profile photo saved');
+          setShowProfileSetup(false);
+          setHasProfilePhoto(true);
+        }}
+      />
+    );
+  }
+
+  // Photo capture flow (required at beginning of each exam) - now for comparison
   if (showPhotoCapture && selectedExam && studentId) {
     return (
       <PhotoCapture
         studentId={studentId}
         onPhotoCapture={async (photoBase64: string) => {
-          console.log('[DASHBOARD] Photo captured for exam identification...');
+          console.log('[DASHBOARD] Photo captured for exam verification...');
           setCapturedPhotoBase64(photoBase64);
         }}
         onComplete={() => {
-          console.log('[DASHBOARD] Student identified, proceeding to exam');
+          console.log('[DASHBOARD] Student identity verified, proceeding to exam');
           setShowPhotoCapture(false);
           setShowExamInterface(true);
-          setHasPhoto(true);
         }}
         onCancel={() => {
           console.log('[DASHBOARD] Photo capture cancelled');
@@ -130,7 +150,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           
           <div className="flex items-center gap-4">
             {/* Student Photo/Avatar */}
-            {hasPhoto && capturedPhotoBase64 ? (
+            {hasProfilePhoto && capturedPhotoBase64 ? (
               <div className="relative">
                 <img
                   src={`data:image/jpeg;base64,${capturedPhotoBase64}`}

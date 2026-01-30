@@ -149,8 +149,8 @@ def verify_student_photo(
         
         # Verify if photos match (using standard threshold)
         threshold = 0.6
-        verified = distance < threshold
-        
+        verified = bool(distance < threshold)
+
         return {
             "verified": verified,
             "confidence": float(confidence),
