@@ -18,6 +18,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [showExamInterface, setShowExamInterface] = useState(false);
+  const [capturedPhotoBase64, setCapturedPhotoBase64] = useState<string | null>(null);
 
   useEffect(() => {
     const loadExams = async () => {
@@ -74,8 +75,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     return (
       <PhotoCapture
         studentId={studentId}
-        onPhotoCapture={async (_photoBase64: string) => {
+        onPhotoCapture={async (photoBase64: string) => {
           console.log('[DASHBOARD] Photo captured for exam identification...');
+          setCapturedPhotoBase64(photoBase64);
         }}
         onComplete={() => {
           console.log('[DASHBOARD] Student identified, proceeding to exam');
@@ -88,6 +90,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           setSelectedExam(null);
           setShowPhotoCapture(false);
           setShowExamInterface(false);
+          setCapturedPhotoBase64(null);
         }}
       />
     );
@@ -98,15 +101,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     return (
       <ExamInterface
         exam={selectedExam}
+        capturedPhoto={capturedPhotoBase64}
         onComplete={(examId) => {
           setCompletedExams([...completedExams, examId]);
           localStorage.setItem('completedExams', JSON.stringify([...completedExams, examId]));
           setSelectedExam(null);
           setShowExamInterface(false);
+          setCapturedPhotoBase64(null);
         }}
         onCancel={() => {
           setSelectedExam(null);
           setShowExamInterface(false);
+          setCapturedPhotoBase64(null);
         }}
       />
     );

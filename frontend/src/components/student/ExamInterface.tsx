@@ -6,11 +6,12 @@ import { ProctoringSession } from '../ProctoringSession';
 
 interface ExamInterfaceProps {
   exam: Exam;
+  capturedPhoto?: string | null;
   onComplete: (examId: string) => void;
   onCancel: () => void;
 }
 
-export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, onComplete, onCancel }) => {
+export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, capturedPhoto, onComplete, onCancel }) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -133,15 +134,33 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, onComplete, 
               <p className="text-gray-400 text-sm">Question {currentQuestionIndex + 1} of {exam.questions.length}</p>
             </div>
 
-            {/* Timer */}
-            <div
-              className={`px-6 py-3 rounded-lg font-mono font-bold text-lg ${
-                isTimeRunningOut
-                  ? 'bg-red-900/30 text-red-400 border border-red-700'
-                  : 'bg-slate-700 text-white'
-              }`}
-            >
-              ⏱️ {formatTime(timeRemaining)}
+            <div className="flex items-start gap-4">
+              {/* Student Photo Verification */}
+              {capturedPhoto && (
+                <div className="relative">
+                  <img
+                    src={`data:image/jpeg;base64,${capturedPhoto}`}
+                    alt="Student ID"
+                    className="w-24 h-32 object-cover rounded-lg border-2 border-blue-500 shadow-lg"
+                  />
+                  <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-1">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+
+              {/* Timer */}
+              <div
+                className={`px-6 py-3 rounded-lg font-mono font-bold text-lg whitespace-nowrap ${
+                  isTimeRunningOut
+                    ? 'bg-red-900/30 text-red-400 border border-red-700'
+                    : 'bg-slate-700 text-white'
+                }`}
+              >
+                ⏱️ {formatTime(timeRemaining)}
+              </div>
             </div>
           </div>
 
