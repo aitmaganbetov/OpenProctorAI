@@ -136,7 +136,7 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, capturedPhot
 
             <div className="flex items-start gap-4">
               {/* Student Photo Verification */}
-              {capturedPhoto && (
+              {capturedPhoto ? (
                 <div className="relative">
                   <img
                     src={`data:image/jpeg;base64,${capturedPhoto}`}
@@ -148,6 +148,12 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, capturedPhot
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   </div>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 border-2 border-slate-500 flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
                 </div>
               )}
 
