@@ -1,5 +1,5 @@
 # app/api/endpoints/exam.py
-from fastapi import APIRouter, Depends, BackgroundTasks, Body
+from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.models import ExamSession, Exam, User, UserRole
@@ -9,6 +9,19 @@ from typing import List, Dict, Any
 from app.models.models import ExamAssignment
 
 router = APIRouter(prefix="/exams", tags=["exams"])
+
+@router.get("/user/{email}")
+def get_user_by_email(email: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Get user info by email to retrieve numeric user ID."""
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role
+    }
 
 @router.post("/sessions/{session_id}/finish")
 def finish_exam_session(

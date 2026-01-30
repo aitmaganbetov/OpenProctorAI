@@ -25,15 +25,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
-          setStudentId(user.id);
           
-          // Check if student has uploaded a photo
+          // Get the numeric user ID from the backend
           try {
-            const photoStatus = await api.checkStudentPhoto(user.id);
-            setHasPhoto(photoStatus.has_photo);
-            console.log('[DASHBOARD] Student photo status:', photoStatus);
+            const userInfo = await api.get<{ id: number; email: string; full_name: string; role: string }>(`/exams/user/${user.email}`);
+            const numericId = userInfo.id;
+            setStudentId(numericId);
+            
+            // Check if student has uploaded a photo
+            try {
+              const photoStatus = await api.checkStudentPhoto(numericId);
+              setHasPhoto(photoStatus.has_photo);
+              console.log('[DASHBOARD] Student photo status:', photoStatus);
+            } catch (err) {
+              console.warn('Could not check photo status:', err);
+            }
           } catch (err) {
-            console.warn('Could not check photo status:', err);
+            console.error('Failed to get user info:', err);
           }
         }
         
