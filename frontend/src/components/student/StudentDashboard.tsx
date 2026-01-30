@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Exam } from '../../services/api';
 import api from '../../services/api';
 import { ExamInterface } from './ExamInterface';
+import { PhotoCapture } from '../PhotoCapture';
 
 interface StudentDashboardProps {
   onLogout?: () => void;
@@ -13,10 +14,29 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [loading, setLoading] = useState(true);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [completedExams, setCompletedExams] = useState<string[]>([]);
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+  const [hasPhoto, setHasPhoto] = useState(false);
 
   useEffect(() => {
     const loadExams = async () => {
       try {
+        // Get student ID from localStorage (set during login)
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          setStudentId(user.id);
+          
+          // Check if student has uploaded a photo
+          try {
+            const photoStatus = await api.checkStudentPhoto(user.id);
+            setHasPhoto(photoStatus.has_photo);
+            console.log('[DASHBOARD] Student photo status:', photoStatus);
+          } catch (err) {
+            console.warn('Could not check photo status:', err);
+          }
+        }
+        
         const examsData = await api.getExams();
         setExams(examsData);
         // Load completed exams from localStorage
@@ -32,6 +52,42 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     loadExams();
   }, []);
 
+  const handleExamSelect = (exam: Exam) => {
+    // Check if student has photo before allowing exam access
+    if (!hasPhoto) {
+      setSelectedExam(exam);
+      setShowPhotoCapture(true);
+    } else {
+      // Student has photo, proceed to exam
+      setSelectedExam(exam);
+      setShowPhotoCapture(false);
+    }
+  };
+
+  // Photo capture flow
+  if (showPhotoCapture && selectedExam && studentId) {
+    return (
+      <PhotoCapture
+        studentId={studentId}
+        onPhotoCapture={async (photoBase64: string) => {
+          console.log('[DASHBOARD] Photo captured, uploading...');
+        }}
+        onComplete={() => {
+          console.log('[DASHBOARD] Photo upload complete, proceeding to exam');
+          setShowPhotoCapture(false);
+          setHasPhoto(true);
+          // ExamInterface will show now
+        }}
+        onCancel={() => {
+          console.log('[DASHBOARD] Photo capture cancelled');
+          setSelectedExam(null);
+          setShowPhotoCapture(false);
+        }}
+      />
+    );
+  }
+
+  // Exam interface flow
   if (selectedExam) {
     return (
       <ExamInterface
@@ -133,7 +189,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
 
                     {/* Action Button */}
                     <button
-                      onClick={() => setSelectedExam(exam)}
+                      onClick={() => handleExamSelect(exam)}
                       disabled={isCompleted}
                       className={`w-full py-3 font-medium rounded-lg transition-all ${
                         isCompleted

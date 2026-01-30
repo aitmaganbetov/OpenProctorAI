@@ -32,6 +32,17 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     face_embedding_path = Column(String(512), nullable=True)
 
+class StudentProfile(Base):
+    __tablename__ = "student_profiles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True, nullable=False)
+    photo_path = Column(String(512), nullable=True)  # Path to stored photo
+    photo_base64 = Column(JSON, nullable=True)  # Base64 encoded photo data
+    is_verified = Column(Boolean, default=False)  # Whether photo has been verified
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 class Exam(Base):
     __tablename__ = "exams"
     

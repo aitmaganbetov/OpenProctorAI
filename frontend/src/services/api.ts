@@ -170,6 +170,38 @@ class ApiService {
     console.log('[API] Response:', result);
     return result;
   }
-}
+
+  async uploadStudentPhoto(studentId: number, photoBase64: string): Promise<any> {
+    const url = `${API_BASE_URL}/proctoring/student/${studentId}/photo`;
+    console.log('[API] POST photo upload to:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo: photoBase64 }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Photo upload response:', result);
+    return result;
+  }
+
+  async checkStudentPhoto(studentId: number): Promise<any> {
+    const url = `${API_BASE_URL}/proctoring/student/${studentId}/photo-status`;
+    console.log('[API] GET photo status from:', url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Photo status response:', result);
+    return result;
+  }
+
 
 export default ApiService.getInstance();
