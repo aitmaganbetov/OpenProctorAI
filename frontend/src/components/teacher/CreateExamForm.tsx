@@ -1,86 +1,250 @@
-// src/components/teacher/CreateExamForm.tsx
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Exam, Question } from '../../services/api';
 
-export const CreateExamForm: React.FC = () => {
-  const { register, handleSubmit, watch } = useForm();
-  const sensitivity = watch("config.sensitivity_level", "standard");
+interface CreateExamFormProps {
+  onSubmit: (exam: Partial<Exam>) => Promise<void>;
+  onCancel: () => void;
+}
 
-  const sensitivityDescriptions = {
-    lenient: "Разрешает короткие отводы взгляда. Идеально для открытых книг.",
-    standard: "Баланс. Фиксирует частые повороты головы и потерю лица.",
-    strict: "Нулевая толерантность. Любой отвод взгляда > 2 сек — нарушение."
+export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCancel }) => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [questions, setQuestions] = useState<Partial<Question>[]>([
+    {
+      text: '',
+      type: 'multiple_choice',
+      options: ['', '', '', ''],
+      points: 1,
+    },
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const handleAddQuestion = () => {
+    setQuestions([
+      ...questions,
+      {
+        text: '',
+        type: 'multiple_choice',
+        options: ['', '', '', ''],
+        points: 1,
+      },
+    ]);
   };
 
-  const onSubmit = (data: any) => {
-    // API call to create exam
-    console.log("Creating exam:", data);
+  const handleRemoveQuestion = (index: number) => {
+    setQuestions(questions.filter((_, i) => i !== index));
+  };
+
+  const handleQuestionChange = (index: number, field: string, value: any) => {
+    const updated = [...questions];
+    (updated[index] as any)[field] = value;
+    setQuestions(updated);
+  };
+
+  const handleOptionChange = (qIndex: number, oIndex: number, value: string) => {
+    const updated = [...questions];
+    const options = (updated[qIndex].options || []) as string[];
+    options[oIndex] = value;
+    updated[qIndex].options = options;
+    setQuestions(updated);
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: string[] = [];
+
+    if (!title.trim()) newErrors.push('Exam title is required');
+    if (durationMinutes < 1) newErrors.push('Duration must be at least 1 minute');
+    if (questions.length === 0) newErrors.push('At least one question is required');
+
+    questions.forEach((q, idx) => {
+      if (!q.text?.trim()) newErrors.push(`Question ${idx + 1} text is required`);
+      if (q.type === 'multiple_choice') {
+        const filledOptions = (q.options || []).filter((o) => o?.trim());
+        if (filledOptions.length < 2) {
+          newErrors.push(`Question ${idx + 1} must have at least 2 options`);
+        }
+      }
+    });
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
+
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      await onSubmit({
+        title,
+        description,
+        duration_minutes: durationMinutes,
+        questions: questions as Question[],
+      });
+    } catch (error) {
+      setErrors(['Failed to create exam. Please try again.']);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-md">
-      <h2 className="text-2xl font-bold mb-6">Создание Экзамена</h2>
-      
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Базовые поля пропустим для краткости (Title, Duration...) */}
-        
-        {/* --- Секция Настроек Прокторинга --- */}
-        <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold text-gray-700">Настройки AI-Проктора</h3>
-          
-          {/* Slider Чувствительности */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700">Уровень строгости</label>
-            <div className="flex items-center space-x-4 mt-2">
-              {['lenient', 'standard', 'strict'].map((level) => (
-                <label key={level} className={`
-                  cursor-pointer px-4 py-2 rounded-lg border 
-                  ${sensitivity === level ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:bg-gray-50'}
-                `}>
-                  <input 
-                    type="radio" 
-                    value={level} 
-                    {...register("config.sensitivity_level")} 
-                    className="sr-only"
-                  />
-                  <span className="capitalize font-bold text-gray-800">{level}</span>
-                </label>
-              ))}
-            </div>
-            <p className="mt-2 text-sm text-gray-500 italic">
-              ℹ️ {sensitivityDescriptions[sensitivity as keyof typeof sensitivityDescriptions]}
-            </p>
+    <div className="bg-slate-800 rounded-xl border border-slate-700 p-8">
+      <h2 className="text-2xl font-bold text-white mb-6">Create New Exam</h2>
+
+      {errors.length > 0 && (
+        <div className="mb-6 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+          <p className="text-red-400 font-medium mb-2">Please fix the following errors:</p>
+          <ul className="list-disc list-inside space-y-1">
+            {errors.map((error, idx) => (
+              <li key={idx} className="text-red-300 text-sm">
+                {error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmitForm} className="space-y-8">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">Exam Details</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Introduction to Chemistry Midterm"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
           </div>
 
-          {/* Чекбоксы ограничений */}
-          <div className="mt-6 space-y-3">
-            <label className="flex items-center">
-              <input type="checkbox" {...register("config.block_tab_switching")} className="form-checkbox h-5 w-5 text-blue-600"/>
-              <span className="ml-2 text-gray-700">Блокировать уход с вкладки (Tab Switch)</span>
-            </label>
-            
-            <label className="flex items-center">
-              <input type="checkbox" {...register("config.require_fullscreen")} className="form-checkbox h-5 w-5 text-blue-600"/>
-              <span className="ml-2 text-gray-700">Требовать полный экран</span>
-            </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide instructions and exam description..."
+              rows={3}
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+            />
           </div>
-          
-          {/* Инструкции для AI (Prompt Injection) */}
-          <div className="mt-4">
-             <label className="block text-sm font-medium text-gray-700">Особые инструкции для AI</label>
-             <textarea 
-                {...register("config.ai_instructions")}
-                placeholder="Например: Студентам разрешено использовать бумагу и ручку для расчетов."
-                className="w-full mt-1 p-2 border rounded"
-                rows={3}
-             />
-             <p className="text-xs text-gray-400">Это будет добавлено в системный промпт при анализе.</p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Duration (minutes)</label>
+            <input
+              type="number"
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+              min="1"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
           </div>
         </div>
 
-        <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition">
-          Создать Экзамен
-        </button>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-white">Questions</h3>
+            <button
+              type="button"
+              onClick={handleAddQuestion}
+              className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              + Add Question
+            </button>
+          </div>
+
+          {questions.map((question, qIndex) => (
+            <div
+              key={qIndex}
+              className="p-6 bg-slate-700 rounded-lg border border-slate-600 space-y-4"
+            >
+              <div className="flex justify-between items-start gap-4">
+                <h4 className="font-semibold text-white">Question {qIndex + 1}</h4>
+                {questions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveQuestion(qIndex)}
+                    className="text-red-400 hover:text-red-300 font-medium text-sm"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={question.text || ''}
+                onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value)}
+                placeholder="Question text..."
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                  <select
+                    value={question.type || 'multiple_choice'}
+                    onChange={(e) => handleQuestionChange(qIndex, 'type', e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="short_answer">Short Answer</option>
+                    <option value="essay">Essay</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Points</label>
+                  <input
+                    type="number"
+                    value={question.points || 1}
+                    onChange={(e) => handleQuestionChange(qIndex, 'points', Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                    className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              {question.type === 'multiple_choice' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">Options</label>
+                  {(question.options || []).map((option, oIndex) => (
+                    <input
+                      key={oIndex}
+                      type="text"
+                      value={option || ''}
+                      onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                      placeholder={`Option ${oIndex + 1}`}
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4 border-t border-slate-600">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {loading ? 'Creating...' : 'Create Exam'}
+          </button>
+        </div>
       </form>
     </div>
   );

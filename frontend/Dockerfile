@@ -12,5 +12,6 @@ RUN npm install
 # Копируем весь код
 COPY . .
 
-# Dev сервер
-CMD ["npm", "start"]
+# Dev сервер - expose port for Vite
+EXPOSE 3000
+CMD ["npm", "run", "dev"]

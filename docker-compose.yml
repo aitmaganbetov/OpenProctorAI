@@ -77,7 +77,7 @@ services:
   # Frontend (в Dev режиме)
   frontend:
     build: ./frontend
-    command: npm start
+    command: npm run dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
