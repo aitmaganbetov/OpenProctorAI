@@ -50,17 +50,21 @@ export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCanc
   };
 
   const handleQuestionChange = (index: number, field: string, value: any) => {
+    console.log(`[FORM] Question ${qIndex} field '${field}' changed to:`, value);
     const updated = [...questions];
-    (updated[index] as any)[field] = value;
+    (updated[qIndex] as any)[field] = value;
     setQuestions(updated);
+    console.log('[FORM] Updated questions:', updated);
   };
 
   const handleOptionChange = (qIndex: number, oIndex: number, value: string) => {
+    console.log(`[FORM] Question ${qIndex} option ${oIndex} changed to:`, value);
     const updated = [...questions];
     const options = (updated[qIndex].options || []) as string[];
     options[oIndex] = value;
     updated[qIndex].options = options;
     setQuestions(updated);
+    console.log('[FORM] Updated questions:', updated);
   };
 
   const validateForm = (): boolean => {
@@ -80,28 +84,47 @@ export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCanc
       }
     });
 
+    console.log('[FORM] Validation check - title:', title, 'duration:', durationMinutes, 'questions:', questions.length);
+    console.log('[FORM] Validation errors found:', newErrors);
+    
     setErrors(newErrors);
     return newErrors.length === 0;
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    console.log('[FORM] Submit button clicked');
+    console.log('[FORM] Current form data:', { title, description, durationMinutes, questions });
+    
+    if (!validateForm()) {
+      console.warn('[FORM] Validation failed - see errors array below');
+      console.warn('[FORM] Validation errors:', errors);
+      return;
+    }
 
     setLoading(true);
+    console.log('[FORM] Validation passed, submitting exam...');
     try {
+      console.log('[FORM] Submitting exam with data:', { title, description, durationMinutes, questions });
       await onSubmit({
         title,
         description,
         duration_minutes: durationMinutes,
         questions: questions as Question[],
       });
-    } catch (error) {
-      setErrors(['Failed to create exam. Please try again.']);
+      console.log('[FORM] Exam submitted successfully!');
+    } catch (error: any) {
+      console.error('[FORM] Failed to create exam:', error);
+      console.error('[FORM] Error details:', { 
+        message: error?.message, 
+        status: error?.status,
+        response: error?.response 
+      });
+      setErrors(['Failed to create exam: ' + (error?.message || 'Unknown error')]);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-8">

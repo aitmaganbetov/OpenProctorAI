@@ -39,13 +39,19 @@ export const TeacherDashboard: React.FC = () => {
 
   const handleCreateExam = async (examData: Partial<Exam>) => {
     try {
-      await api.createExam(examData);
+      console.log('[DASHBOARD] handleCreateExam called with data:', examData);
+      const response = await api.createExam(examData);
+      console.log('[DASHBOARD] Exam created successfully:', response);
+      
       // Refresh the exams list from server to reflect persisted data
       const examsData = await api.getExams();
+      console.log('[DASHBOARD] Refreshed exams list:', examsData);
       setExams(examsData);
       setShowCreateForm(false);
+      console.log('[DASHBOARD] Form closed and exams list updated');
     } catch (error) {
-      console.error('Failed to create exam:', error);
+      console.error('[DASHBOARD] Failed to create exam:', error);
+      throw error;
     }
   };
 
@@ -81,15 +87,22 @@ export const TeacherDashboard: React.FC = () => {
             <CreateExamForm
               initialExam={editingExam || undefined}
               onSubmit={async (examData) => {
-                if (editingExam) {
-                  // update
-                  await api.putExam(editingExam.id as any, examData);
-                  const examsData = await api.getExams();
-                  setExams(examsData);
-                  setEditingExam(null);
-                  setShowCreateForm(false);
-                } else {
-                  await handleCreateExam(examData);
+                try {
+                  if (editingExam) {
+                    // update
+                    console.log('[DASHBOARD] Updating exam:', editingExam.id);
+                    await api.putExam(editingExam.id as any, examData);
+                    const examsData = await api.getExams();
+                    setExams(examsData);
+                    setEditingExam(null);
+                    setShowCreateForm(false);
+                  } else {
+                    console.log('[DASHBOARD] Creating new exam');
+                    await handleCreateExam(examData);
+                  }
+                } catch (error) {
+                  console.error('[DASHBOARD] Form submission error:', error);
+                  throw error;
                 }
               }}
               onCancel={() => { setEditingExam(null); setShowCreateForm(false); }}
