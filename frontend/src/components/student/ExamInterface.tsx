@@ -60,10 +60,11 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, onComplete, 
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const currentQuestion = exam.questions[currentQuestionIndex];
+  const currentQuestion = exam.questions && exam.questions.length > 0 ? exam.questions[currentQuestionIndex] : null;
   const isTimeRunningOut = timeRemaining < 300; // 5 minutes
 
   const handleAnswerChange = (answer: string) => {
+    if (!currentQuestion) return;
     setAnswers({
       ...answers,
       [currentQuestion.id]: answer,
@@ -91,6 +92,25 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({ exam, onComplete, 
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-400">Starting exam...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!exam.questions || exam.questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="bg-red-900/20 border border-red-700 rounded-lg p-6 mb-4">
+            <h2 className="text-xl font-semibold text-red-400 mb-2">No Questions Available</h2>
+            <p className="text-gray-400 mb-6">This exam does not have any questions configured. Please contact your instructor.</p>
+            <button
+              onClick={onCancel}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition"
+            >
+              Return to Exams
+            </button>
+          </div>
         </div>
       </div>
     );
