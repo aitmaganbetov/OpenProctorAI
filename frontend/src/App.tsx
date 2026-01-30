@@ -1,13 +1,12 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { LoginPage } from './components/LoginPage';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
-  const [refreshAuth, setRefreshAuth] = useState(false);
+  const { user, loading, isAuthenticated, login, logout } = useAuth();
 
   if (loading) {
     return (
@@ -24,8 +23,11 @@ function App() {
     return (
       <LoginPage
         onLoginSuccess={() => {
-          setRefreshAuth(!refreshAuth);
+          // User is now logged in, App will re-render automatically
         }}
+        login={login}
+        loading={loading}
+        error={user ? undefined : undefined}
       />
     );
   }

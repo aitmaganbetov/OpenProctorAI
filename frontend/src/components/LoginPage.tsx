@@ -1,13 +1,14 @@
 // src/components/LoginPage.tsx
 import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
+  login: (email: string, password: string, role: 'student' | 'teacher') => Promise<void>;
+  loading?: boolean;
+  error?: string | null;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { login, loading, error } = useAuth();
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, login, loading = false, error }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
