@@ -51,6 +51,7 @@ class ExamSession(Base):
     
     start_time = Column(DateTime(timezone=True), server_default=func.now())
     end_time = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(50), default="active")  # active, completed, failed
     verdict = Column(String(50), default="pending")
     ai_summary = Column(JSON, nullable=True)
     

@@ -27,6 +27,40 @@ def finish_exam_session(
     background_tasks.add_task(run_analysis_task, db, session_id)
     return {"status": "exam_finished", "message": "Results are being processed"}
 
+@router.post("/sessions")
+def start_exam_session(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Create a new exam session for a student to take an exam."""
+    exam_id = payload.get("exam_id")
+    student_id = payload.get("student_id") or 1  # Default to first user for demo
+    
+    if not exam_id:
+        return {"error": "exam_id is required"}
+    
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        return {"error": "Exam not found"}
+    
+    session = ExamSession(
+        exam_id=exam_id,
+        student_id=student_id,
+        start_time=datetime.now(),
+        status="active"
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    
+    return {
+        "id": session.id,
+        "exam_id": session.exam_id,
+        "student_id": session.student_id,
+        "started_at": session.start_time.isoformat(),
+        "status": session.status
+    }
+
 def run_analysis_task(db: Session, session_id: int):
     try:
         analyzer = ExamAnalyzer(db, session_id)

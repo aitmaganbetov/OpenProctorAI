@@ -150,7 +150,7 @@ class ApiService {
   }
 
   async getAssignments(): Promise<any[]> {
-    return this.get<any[]>('/assignments');
+    return this.get<any[]>('/exams/assignments');
   }
 
   async getExamAssignments(examId: number | string): Promise<any[]> {
