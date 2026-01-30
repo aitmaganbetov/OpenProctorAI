@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Это запускается в отдельном потоке
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 

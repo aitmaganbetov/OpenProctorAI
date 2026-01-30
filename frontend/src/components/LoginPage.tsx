@@ -1,9 +1,9 @@
 // src/components/LoginPage.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
-  login: (email: string, password: string, role: 'student' | 'teacher') => Promise<void>;
+  login: (email: string, password: string, role: 'student' | 'teacher') => Promise<any>;
   loading?: boolean;
   error?: string | null;
 }

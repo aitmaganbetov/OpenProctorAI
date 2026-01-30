@@ -1,4 +1,4 @@
-import React, { useState, FC } from 'react';
+import { useState, FC } from 'react';
 import { useAIWorker } from '../hooks/useAIWorker';
 
 // Точки для калибровки (CSS координаты)

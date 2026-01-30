@@ -32,7 +32,7 @@ export const useAuth = () => {
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string, role: 'teacher' | 'student') => {
+    async (email: string, _password: string, role: 'teacher' | 'student') => {
       setLoading(true);
       setError(null);
       try {

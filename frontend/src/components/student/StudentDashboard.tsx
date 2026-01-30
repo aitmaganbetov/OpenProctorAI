@@ -69,7 +69,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     return (
       <PhotoCapture
         studentId={studentId}
-        onPhotoCapture={async (photoBase64: string) => {
+        onPhotoCapture={async (_photoBase64: string) => {
           console.log('[DASHBOARD] Photo captured, uploading...');
         }}
         onComplete={() => {

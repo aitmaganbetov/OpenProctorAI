@@ -202,6 +202,6 @@ class ApiService {
     console.log('[API] Photo status response:', result);
     return result;
   }
-
+}
 
 export default ApiService.getInstance();

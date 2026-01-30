@@ -1,5 +1,4 @@
 // src/App.tsx
-import React from 'react';
 import { LoginPage } from './components/LoginPage';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { StudentDashboard } from './components/student/StudentDashboard';

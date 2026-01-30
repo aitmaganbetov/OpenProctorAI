@@ -11,7 +11,7 @@ interface TeacherDashboardProps {
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout }) => {
   const [exams, setExams] = useState<Exam[]>([]);
-  const [sessions, setSessions] = useState<ExamSession[]>([]);
+  const [sessions] = useState<ExamSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);

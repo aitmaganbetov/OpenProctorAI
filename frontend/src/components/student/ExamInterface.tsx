@@ -1,6 +1,6 @@
 // src/components/student/ExamInterface.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Exam, Question } from '../../services/api';
+import { Exam } from '../../services/api';
 import api from '../../services/api';
 import { ProctoringSession } from '../ProctoringSession';
 
