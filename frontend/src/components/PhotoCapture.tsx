@@ -137,6 +137,12 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
         {/* Camera/Photo Display */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-6">
+          {/* Hidden canvas - always present for capturing photos */}
+          <canvas
+            ref={canvasRef}
+            style={{ display: 'none' }}
+          />
+
           {!capturedPhoto ? (
             <div className="relative">
               <video
@@ -153,11 +159,7 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
               )}
             </div>
           ) : (
-            <canvas
-              ref={canvasRef}
-              className="w-full h-96 bg-black"
-              style={{ display: 'none' }}
-            />
+            <div className="w-full h-96 bg-black" />
           )}
 
           {/* Captured Photo Display */}
