@@ -10,10 +10,23 @@ WORKDIR /app
 # Установка системных зависимостей
 # gcc и pkg-config нужны для компиляции некоторых python-пакетов
 # libmariadb-dev нужен для mysqlclient (если будем использовать его) или aiomysql
-RUN apt-get update && apt-get install -y \
+# cmake, build-essential нужны для dlib (используется в face-recognition)
+# libgl1, libglib2.0-0, libsm6 нужны для OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     gcc \
+    g++ \
     pkg-config \
+    python3-dev \
+    cmake \
     libmariadb-dev \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libopenblas-dev \
+    liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Сначала копируем requirements, чтобы закешировать слои Docker

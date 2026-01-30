@@ -20,6 +20,11 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<{
+    verified: boolean;
+    confidence: number;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -96,6 +101,7 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
     setLoading(true);
     setError(null);
+    setVerificationStatus(null);
 
     try {
       // Convert data URL to base64 string
@@ -107,12 +113,31 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       // Upload to API
       await api.uploadStudentPhoto(studentId, base64String);
       
-      console.log('[PHOTO] Photo uploaded successfully');
-      setCapturedPhoto(null);
-      onComplete();
+      console.log('[PHOTO] Photo uploaded successfully, verifying identity...');
+      
+      // Verify photo matches profile
+      const verificationResult = await api.verifyStudentPhoto(studentId, base64String);
+      console.log('[PHOTO] Verification result:', verificationResult);
+      
+      setVerificationStatus({
+        verified: verificationResult.verified,
+        confidence: verificationResult.confidence,
+        message: verificationResult.message,
+      });
+      
+      if (verificationResult.verified) {
+        console.log('[PHOTO] Identity verified successfully');
+        setTimeout(() => {
+          setCapturedPhoto(null);
+          onComplete();
+        }, 1500); // Show success message for 1.5 seconds
+      } else {
+        console.warn('[PHOTO] Identity verification failed:', verificationResult.message);
+        setError(`Identity verification failed: ${verificationResult.message}`);
+      }
     } catch (err: any) {
-      console.error('[PHOTO] Upload failed:', err);
-      setError(err.message || 'Failed to upload photo');
+      console.error('[PHOTO] Upload/verification failed:', err);
+      setError(err.message || 'Failed to upload and verify photo');
     } finally {
       setLoading(false);
     }
@@ -179,6 +204,29 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
           </div>
         )}
 
+        {/* Verification Status */}
+        {verificationStatus && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            verificationStatus.verified
+              ? 'bg-green-900/20 border-green-700'
+              : 'bg-orange-900/20 border-orange-700'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">
+                {verificationStatus.verified ? '✅' : '⚠️'}
+              </div>
+              <div className="flex-1">
+                <p className={verificationStatus.verified ? 'text-green-400' : 'text-orange-400'}>
+                  {verificationStatus.message}
+                </p>
+                <p className={`text-sm mt-1 ${verificationStatus.verified ? 'text-green-300' : 'text-orange-300'}`}>
+                  Match confidence: {(verificationStatus.confidence * 100).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Instructions */}
         {!capturedPhoto && (
           <div className="mb-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
@@ -217,10 +265,21 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
               </button>
               <button
                 onClick={submitPhoto}
-                disabled={loading}
+                disabled={loading || !!verificationStatus?.verified}
                 className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {loading ? 'Uploading...' : '✓ Confirm & Continue'}
+                {loading ? (
+                  <>
+                    <span className="animate-spin inline-block mr-2">⏳</span>
+                    Verifying identity...
+                  </>
+                ) : verificationStatus?.verified ? (
+                  <>
+                    <span>✓ Identity verified!</span>
+                  </>
+                ) : (
+                  '✓ Confirm & Verify'
+                )}
               </button>
             </>
           )}

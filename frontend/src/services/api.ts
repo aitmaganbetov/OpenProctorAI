@@ -202,6 +202,24 @@ class ApiService {
     console.log('[API] Photo status response:', result);
     return result;
   }
+
+  async verifyStudentPhoto(studentId: number, examPhotoBase64: string): Promise<any> {
+    const url = `${API_BASE_URL}/proctoring/student/${studentId}/verify-photo`;
+    console.log('[API] POST photo verification to:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exam_photo: examPhotoBase64 }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Photo verification response:', result);
+    return result;
+  }
 }
 
 export default ApiService.getInstance();
