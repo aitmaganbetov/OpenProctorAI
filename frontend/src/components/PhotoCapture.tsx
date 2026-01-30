@@ -101,8 +101,11 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
+          <div className="inline-block px-4 py-2 bg-blue-900/30 border border-blue-700 rounded-full mb-4">
+            <p className="text-blue-400 text-sm font-medium">📸 Required for Exam Access</p>
+          </div>
           <h1 className="text-4xl font-bold text-white mb-2">Student Identification</h1>
-          <p className="text-gray-400">Please capture a clear photo of yourself for identification verification</p>
+          <p className="text-gray-400">Please capture a clear photo of yourself for identification verification before starting the exam</p>
         </div>
 
         {/* Camera/Photo Display */}

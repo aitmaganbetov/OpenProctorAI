@@ -17,6 +17,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [studentId, setStudentId] = useState<number | null>(null);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [showExamInterface, setShowExamInterface] = useState(false);
 
   useEffect(() => {
     const loadExams = async () => {
@@ -61,42 +62,39 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }, []);
 
   const handleExamSelect = (exam: Exam) => {
-    // Check if student has photo before allowing exam access
-    if (!hasPhoto) {
-      setSelectedExam(exam);
-      setShowPhotoCapture(true);
-    } else {
-      // Student has photo, proceed to exam
-      setSelectedExam(exam);
-      setShowPhotoCapture(false);
-    }
+    // ALWAYS require photo identification at the beginning of exam
+    // This ensures the student taking the exam is the registered student
+    setSelectedExam(exam);
+    setShowPhotoCapture(true);
+    setShowExamInterface(false);
   };
 
-  // Photo capture flow
+  // Photo capture flow (required at beginning of each exam)
   if (showPhotoCapture && selectedExam && studentId) {
     return (
       <PhotoCapture
         studentId={studentId}
         onPhotoCapture={async (_photoBase64: string) => {
-          console.log('[DASHBOARD] Photo captured, uploading...');
+          console.log('[DASHBOARD] Photo captured for exam identification...');
         }}
         onComplete={() => {
-          console.log('[DASHBOARD] Photo upload complete, proceeding to exam');
+          console.log('[DASHBOARD] Student identified, proceeding to exam');
           setShowPhotoCapture(false);
+          setShowExamInterface(true);
           setHasPhoto(true);
-          // ExamInterface will show now
         }}
         onCancel={() => {
           console.log('[DASHBOARD] Photo capture cancelled');
           setSelectedExam(null);
           setShowPhotoCapture(false);
+          setShowExamInterface(false);
         }}
       />
     );
   }
 
-  // Exam interface flow
-  if (selectedExam) {
+  // Exam interface flow (after photo identification)
+  if (showExamInterface && selectedExam) {
     return (
       <ExamInterface
         exam={selectedExam}
@@ -104,8 +102,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           setCompletedExams([...completedExams, examId]);
           localStorage.setItem('completedExams', JSON.stringify([...completedExams, examId]));
           setSelectedExam(null);
+          setShowExamInterface(false);
         }}
-        onCancel={() => setSelectedExam(null)}
+        onCancel={() => {
+          setSelectedExam(null);
+          setShowExamInterface(false);
+        }}
       />
     );
   }
