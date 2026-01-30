@@ -24,16 +24,24 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   useEffect(() => {
     const startCamera = async () => {
       try {
+        console.log('[PHOTO] Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         });
+        console.log('[PHOTO] Camera stream obtained:', stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setCameraActive(true);
+          console.log('[PHOTO] Video element connected to stream');
+          // Wait for video to load
+          videoRef.current.onloadedmetadata = () => {
+            console.log('[PHOTO] Video metadata loaded, video is playing');
+            setCameraActive(true);
+          };
         }
       } catch (err) {
-        setError('Unable to access camera. Please check permissions.');
-        console.error('Camera error:', err);
+        const errorMessage = 'Unable to access camera. Please check permissions.';
+        setError(errorMessage);
+        console.error('[PHOTO] Camera error:', err);
       }
     };
 
@@ -48,16 +56,35 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
   }, []);
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('[PHOTO] Missing video or canvas reference');
+      return;
+    }
 
     const context = canvasRef.current.getContext('2d');
-    if (!context) return;
+    if (!context) {
+      console.error('[PHOTO] Could not get canvas context');
+      return;
+    }
 
-    canvasRef.current.width = videoRef.current.videoWidth;
-    canvasRef.current.height = videoRef.current.videoHeight;
+    // Get the actual video dimensions
+    const videoWidth = videoRef.current.videoWidth;
+    const videoHeight = videoRef.current.videoHeight;
+    
+    console.log('[PHOTO] Video dimensions:', { videoWidth, videoHeight });
+    
+    if (videoWidth === 0 || videoHeight === 0) {
+      setError('Camera is still loading. Please wait a moment and try again.');
+      console.error('[PHOTO] Video dimensions are 0');
+      return;
+    }
+
+    canvasRef.current.width = videoWidth;
+    canvasRef.current.height = videoHeight;
     context.drawImage(videoRef.current, 0, 0);
 
     const photoData = canvasRef.current.toDataURL('image/jpeg', 0.9);
+    console.log('[PHOTO] Photo captured, data URL length:', photoData.length);
     setCapturedPhoto(photoData);
   };
 
@@ -116,6 +143,7 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="w-full h-96 object-cover bg-black"
               />
               {!cameraActive && (
