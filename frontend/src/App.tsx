@@ -6,7 +6,7 @@ import { StudentDashboard } from './components/student/StudentDashboard';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, loading, isAuthenticated, logout } = useAuth();
   const [refreshAuth, setRefreshAuth] = useState(false);
 
   if (loading) {
@@ -32,8 +32,8 @@ function App() {
 
   return (
     <>
-      {user?.role === 'teacher' && <TeacherDashboard />}
-      {user?.role === 'student' && <StudentDashboard />}
+      {user?.role === 'teacher' && <TeacherDashboard onLogout={logout} />}
+      {user?.role === 'student' && <StudentDashboard onLogout={logout} />}
     </>
   );
 }

@@ -4,7 +4,11 @@ import { Exam } from '../../services/api';
 import api from '../../services/api';
 import { ExamInterface } from './ExamInterface';
 
-export const StudentDashboard: React.FC = () => {
+interface StudentDashboardProps {
+  onLogout?: () => void;
+}
+
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
@@ -46,9 +50,22 @@ export const StudentDashboard: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Available Exams</h1>
-          <p className="text-gray-400">Select an exam to begin. Make sure your environment is properly set up.</p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Available Exams</h1>
+            <p className="text-gray-400">Select an exam to begin. Make sure your environment is properly set up.</p>
+          </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign Out
+            </button>
+          )}
         </div>
 
         {/* Loading State */}
