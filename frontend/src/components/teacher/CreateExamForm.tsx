@@ -7,22 +7,10 @@ interface CreateExamFormProps {
   initialExam?: Partial<Exam> | null;
 }
 
-export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCancel }) => {
+export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCancel, initialExam }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const initial = initialExam || null;
-
-  React.useEffect(() => {
-    if (initial) {
-      setTitle(initial.title || '');
-      setDescription(initial.description || '');
-      setDurationMinutes(initial.duration_minutes || 60);
-      if (initial.questions && initial.questions.length > 0) {
-        setQuestions(initial.questions as Partial<Question>[]);
-      }
-    }
-  }, [initial]);
   const [questions, setQuestions] = useState<Partial<Question>[]>([
     {
       text: '',
@@ -31,6 +19,17 @@ export const CreateExamForm: React.FC<CreateExamFormProps> = ({ onSubmit, onCanc
       points: 1,
     },
   ]);
+
+  React.useEffect(() => {
+    if (initialExam) {
+      setTitle(initialExam.title || '');
+      setDescription(initialExam.description || '');
+      setDurationMinutes(initialExam.duration_minutes || 60);
+      if (initialExam.questions && initialExam.questions.length > 0) {
+        setQuestions(initialExam.questions as Partial<Question>[]);
+      }
+    }
+  }, [initialExam]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
