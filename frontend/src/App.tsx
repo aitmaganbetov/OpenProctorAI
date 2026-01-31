@@ -1,12 +1,34 @@
 // src/App.tsx
+import { useEffect, useState } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { StudentDashboard } from './components/student/StudentDashboard';
+import LanguageSwitcher from './components/ui/LanguageSwitcher';
+import ThemeToggle from './components/ui/ThemeToggle';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
   const { user, loading, isAuthenticated, login, logout } = useAuth();
+  const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  useEffect(() => {
+    localStorage.setItem('lang', lang);
+    document.documentElement.lang = lang;
+    window.dispatchEvent(new Event('app:lang-change'));
+  }, [lang]);
 
   if (loading) {
     return (
@@ -34,6 +56,12 @@ function App() {
 
   return (
     <>
+      {user?.role !== 'admin' && (
+        <div className="fixed bottom-4 left-4 z-[300] flex items-center gap-2">
+          <LanguageSwitcher lang={lang} setLang={(l) => setLang(l as 'ru' | 'en' | 'kk')} />
+          <ThemeToggle isDark={isDark} setIsDark={setIsDark} />
+        </div>
+      )}
       {user?.role === 'admin' && <AdminPanel onLogout={logout} />}
       {user?.role === 'teacher' && <TeacherDashboard onLogout={logout} />}
       {user?.role === 'student' && <StudentDashboard onLogout={logout} />}

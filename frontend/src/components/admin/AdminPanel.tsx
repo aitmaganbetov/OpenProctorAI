@@ -937,6 +937,7 @@ export const AdminPanel = ({ onLogout }: AdminPanelProps) => {
             <div className="h-4 w-px bg-white/10"></div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">OpenProctorAI Protected</span>
           </div>
+
         </main>
 
         {message && <Message text={message.text} type={message.type} onClose={() => setMessage(null)} />}

@@ -1,38 +1,57 @@
 // src/components/teacher/TeacherDashboard.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  Monitor,
-  Users,
-  BookOpen,
-  Send,
-  AlertTriangle,
-  Eye,
-  FileUp,
-  Plus,
-  Search,
-  Copy,
-  Trash2,
-  Settings,
-  CheckSquare,
-  Mail,
-  Fingerprint,
-  RefreshCw,
-  Layers,
-  Clock,
-  ChevronRight,
-  ToggleRight,
-  ToggleLeft,
-  Play,
-  Filter as FilterIcon,
-  User,
-  LogOut
-} from 'lucide-react';
 import api from '../../services/api';
+import {
+  Activity,
+  AlertTriangle,
+  Archive,
+  BarChart3,
+  BookOpen,
+  Calendar,
+  Check,
+  CheckCircle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  CheckSquare,
+  ChevronRight,
+  Clock,
+  Download,
+  Eye,
+  Copy,
+  FileText,
+  Filter,
+  FileUp,
+  Fingerprint,
+  Flag,
+  LayoutDashboard,
+  LayoutGrid,
+  LogOut,
+  Mail,
+  Layers,
+  Menu,
+  Monitor,
+  MessageSquare,
+  Pause,
+  Play,
+  Send,
+  Search,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Settings,
+  Terminal,
+  ToggleLeft,
+  ToggleRight,
+  Upload,
+  Trash2,
+  User,
+  Users,
+  Video,
+  X,
+} from 'lucide-react';
 
-interface TeacherDashboardProps {
-  onLogout?: () => void;
-}
-
+type StreamKind = 'camera' | 'screen';
 // --- Компонент Логотипа ---
 const OpenProctorLogo = ({ className = "w-8 h-8" }) => (
   <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -132,7 +151,9 @@ const getAvatarInitials = (name: string) => {
 };
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _onLogout }) => {
+  const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
   const [activeTab, setActiveTab] = useState('proctoring');
+  const [proctoringViewMode, setProctoringViewMode] = useState<'grid' | 'detail'>('grid');
   const [students, setStudents] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -140,6 +161,60 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
   const [searchQuery, setSearchQuery] = useState('');
   const [monitoringGroup, setMonitoringGroup] = useState('Все');
   const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    const handler = () => setLang((localStorage.getItem('lang') as any) || 'ru');
+    window.addEventListener('app:lang-change', handler as EventListener);
+    return () => window.removeEventListener('app:lang-change', handler as EventListener);
+  }, []);
+
+  const t = {
+    ru: {
+      proctoring: 'Мониторинг',
+      students: 'Студенты',
+      questions: 'Банк вопросов',
+      assignments: 'Назначение',
+      activeSessions: 'Участники сессии',
+      searchPlaceholder: 'Поиск по имени/ID...',
+      allGroups: 'Все группы',
+      live: 'Live',
+      incidentLog: 'Журнал инцидентов AI',
+      noViolations: 'Чисто',
+      risk: 'Риск',
+      studentStream: 'Камера',
+      studentScreen: 'Экран'
+    },
+    en: {
+      proctoring: 'Monitoring',
+      students: 'Students',
+      questions: 'Question Bank',
+      assignments: 'Assignments',
+      activeSessions: 'Session Participants',
+      searchPlaceholder: 'Search by name/ID...',
+      allGroups: 'All Groups',
+      live: 'Live',
+      incidentLog: 'AI Incident Log',
+      noViolations: 'Clean',
+      risk: 'Risk',
+      studentStream: 'Cam',
+      studentScreen: 'Screen'
+    },
+    kk: {
+      proctoring: 'Бақылау',
+      students: 'Студенттер',
+      questions: 'Сұрақтар банкі',
+      assignments: 'Тағайындау',
+      activeSessions: 'Сессия қатысушылары',
+      searchPlaceholder: 'Аты/ID бойынша іздеу...',
+      allGroups: 'Барлық топтар',
+      live: 'Live',
+      incidentLog: 'AI оқиғалар журналы',
+      noViolations: 'Таза',
+      risk: 'Қауіп',
+      studentStream: 'Камера',
+      studentScreen: 'Экран'
+    },
+  }[lang];
 
 
   const refreshStudents = async () => {
@@ -272,13 +347,30 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
   const renderContent = () => {
     switch (activeTab) {
       case 'proctoring':
+        if (proctoringViewMode === 'detail' && selectedStudent) {
+          return (
+            <ProctoringView
+              student={selectedStudent}
+              sessions={sessions}
+              notify={notify}
+              onRefresh={() => selectedStudent?.id && refreshSessions(selectedStudent.id)}
+              onExport={() => exportViolationsCsv(selectedStudent, sessions)}
+              onLogout={_onLogout}
+              onBack={() => setProctoringViewMode('grid')}
+              t={t}
+            />
+          );
+        }
         return (
-          <ProctoringView
-            student={selectedStudent}
+          <ProctoringGridView
+            students={filteredStudents}
             sessions={sessions}
             notify={notify}
-            onRefresh={() => selectedStudent?.id && refreshSessions(selectedStudent.id)}
-            onExport={() => exportViolationsCsv(selectedStudent, sessions)}
+            onInspect={(student: any) => {
+              setSelectedStudent(student);
+              setProctoringViewMode('detail');
+            }}
+            t={t}
             onLogout={_onLogout}
           />
         );
@@ -329,42 +421,42 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
             active={activeTab === 'proctoring'} 
             onClick={() => setActiveTab('proctoring')} 
             icon={<Monitor className="w-5 h-5" />} 
-            label="Мониторинг" 
+            label={t.proctoring} 
           />
           <NavButton 
             active={activeTab === 'students'} 
             onClick={() => setActiveTab('students')} 
             icon={<Users className="w-5 h-5" />} 
-            label="Студенты" 
+            label={t.students} 
           />
           <NavButton 
             active={activeTab === 'questions'} 
             onClick={() => setActiveTab('questions')} 
             icon={<BookOpen className="w-5 h-5" />} 
-            label="Банк вопросов" 
+            label={t.questions} 
           />
           <NavButton 
             active={activeTab === 'assignments'} 
             onClick={() => setActiveTab('assignments')} 
             icon={<Send className="w-5 h-5" />} 
-            label="Назначение" 
+            label={t.assignments} 
           />
 
           {activeTab === 'proctoring' && (
             <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
               <div className="px-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Участники сессии</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.activeSessions}</p>
                 
                 {/* Выбор группы в мониторинге */}
                 <div className="relative mb-3 group">
-                  <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                   <select 
                     value={monitoringGroup}
                     onChange={(e) => setMonitoringGroup(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-black uppercase tracking-tight appearance-none outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200 transition-all cursor-pointer"
                   >
                     {allGroups.map(g => (
-                      <option key={g} value={g}>{g === 'Все' ? 'Все группы' : g}</option>
+                      <option key={g} value={g}>{g === 'Все' ? t.allGroups : g}</option>
                     ))}
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -377,7 +469,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
                   <input 
                     type="text" 
-                    placeholder="Поиск по имени/ID..."
+                    placeholder={t.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all"
@@ -389,7 +481,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                 {filteredStudents.length > 0 ? filteredStudents.map(s => (
                   <button 
                     key={s.id}
-                    onClick={() => setSelectedStudent(s)}
+                    onClick={() => {
+                      setSelectedStudent(s);
+                      setProctoringViewMode('detail');
+                    }}
                     className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all text-left ${selectedStudent?.id === s.id ? 'bg-orange-50 text-orange-700 shadow-sm' : 'hover:bg-slate-50'}`}
                   >
                     <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0">{getAvatarInitials(s.full_name || s.name || 'Student')}</div>
@@ -417,15 +512,237 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
   );
 };
 
-function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogout }: any) {
+function GridLiveStream({ studentId, kind }: { studentId: number; kind: StreamKind }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [status, setStatus] = useState<'idle' | 'connecting' | 'live' | 'error'>('connecting');
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const viewerIdRef = useRef(`viewer-${Math.random().toString(36).slice(2, 10)}`);
+
+  useEffect(() => {
+    if (!studentId) return;
+    setStatus('connecting');
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${window.location.host}/api/v1/proctoring/ws/stream/${studentId}-${kind}`;
+    const viewerId = viewerIdRef.current;
+    const selfId = String(studentId);
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+    const socket = new WebSocket(wsUrl);
+    peerRef.current = pc;
+    socketRef.current = socket;
+
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ type: 'ready', from: viewerId }));
+    });
+
+    pc.ontrack = (event) => {
+      const stream = event.streams[0];
+      if (videoRef.current && stream) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+        setStatus('live');
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, from: viewerId, to: selfId }));
+      }
+    };
+
+    socket.onmessage = async (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg?.to && msg.to !== viewerId) return;
+
+      if (msg.type === 'offer' && msg.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription, from: viewerId, to: msg.from || selfId }));
+      }
+      if (msg.type === 'ice' && msg.candidate) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    socket.onerror = () => setStatus('error');
+    socket.onclose = () => {
+      if (status !== 'live') setStatus('error');
+    };
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      socket.close();
+      pc.close();
+    };
+  }, [studentId, kind]);
+
+  return (
+    <div className="absolute inset-0">
+      <video ref={videoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
+      {status !== 'live' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-[10px] font-black uppercase tracking-widest">
+          {status === 'connecting' ? 'Connecting...' : 'No Stream'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t }: any) {
+  const sessionByStudent = useMemo(() => {
+    const map = new Map<number, any>();
+    sessions.forEach((session: any) => {
+      const studentId = session?.student_id;
+      if (!studentId) return;
+      const current = map.get(studentId);
+      const currentTime = current?.start_time ? Date.parse(current.start_time) : current?.id || 0;
+      const nextTime = session?.start_time ? Date.parse(session.start_time) : session?.id || 0;
+      if (!current || nextTime > currentTime) {
+        map.set(studentId, session);
+      }
+    });
+    return map;
+  }, [sessions]);
+
+  const formatTimestamp = (timestamp?: string) => {
+    if (!timestamp) return '—';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return timestamp;
+    return date.toLocaleTimeString();
+  };
+
+  const getRiskScore = (violations: any[]) => {
+    if (!violations || violations.length === 0) return 0;
+    const severitySum = violations.reduce((sum, v) => sum + (v?.severity_score ?? 1), 0);
+    return Math.min(100, Math.max(0, severitySum * 20));
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur sticky top-0 z-40">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-black tracking-tight text-slate-900">{t.proctoring}</h2>
+          <div className="flex items-center gap-2 bg-slate-500/10 px-3 py-1.5 rounded-full border border-slate-500/10">
+            <LayoutGrid className="w-4 h-4 text-orange-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Grid View</span>
+          </div>
+        </div>
+        <ProfileMenu notify={notify} onLogout={onLogout} />
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        {students.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {students.map((student: any) => {
+              const session = sessionByStudent.get(student.id);
+              const violations = session?.violations || [];
+              const riskScore = getRiskScore(violations);
+              const riskClass = riskScore > 70 ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+              const studentName = student.full_name || student.name || 'Student';
+              const groupLabel = student.group || 'Без группы';
+
+              return (
+                <div key={student.id} className="flex flex-col rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-xl group bg-white">
+                  <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center text-xs font-black">
+                        {getAvatarInitials(studentName)}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight text-slate-900">{studentName}</h3>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{groupLabel} • {student.id}</p>
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase border ${riskClass}`}>
+                      {t.risk}: {riskScore}%
+                    </div>
+                  </div>
+
+                  <div className="relative grid grid-cols-2 gap-px bg-slate-200">
+                    <div className="aspect-square relative flex items-center justify-center overflow-hidden bg-slate-950">
+                      <GridLiveStream studentId={student.id} kind="camera" />
+                      <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/50 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
+                        <Video className="w-3 h-3" /> {t.studentStream}
+                      </div>
+                    </div>
+                    <div className="aspect-square relative flex items-center justify-center overflow-hidden bg-slate-900">
+                      <GridLiveStream studentId={student.id} kind="screen" />
+                      <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/50 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
+                        <Monitor className="w-3 h-3" /> {t.studentScreen}
+                      </div>
+                    </div>
+                    {riskScore > 70 && (
+                      <div className="absolute inset-0 border-2 border-red-500/30 animate-pulse pointer-events-none" />
+                    )}
+                  </div>
+
+                  <div className="p-5 flex-1 flex flex-col">
+                    <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
+                      <Activity className="w-3 h-3" /> {t.incidentLog}
+                    </h4>
+                    <div className="space-y-2 h-32 overflow-y-auto scrollbar-hide">
+                      {violations.length > 0 ? (
+                        violations.map((v: any) => (
+                          <div key={v.id} className="flex justify-between items-center p-3 rounded-xl border text-[10px] bg-slate-50 border-slate-100">
+                            <div className="font-bold flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                              {v.type}
+                            </div>
+                            <div className="font-mono text-slate-400 font-bold">{formatTimestamp(v.timestamp)}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center opacity-40">
+                          <CheckCircle2 className="w-6 h-6 mb-1 text-emerald-500" />
+                          <span className="text-[9px] font-black uppercase">{t.noViolations}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onInspect?.(student)}
+                    className="w-full py-3 bg-slate-500/5 text-slate-400 text-[9px] font-black uppercase border-t border-slate-100 hover:bg-orange-500 hover:text-white transition-all"
+                  >
+                    Full Inspection
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-40 opacity-30">
+            <Monitor className="w-20 h-20 mb-4" />
+            <h3 className="text-2xl font-black uppercase tracking-widest">No Active Students</h3>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogout, onBack, t }: any) {
   if (!student) return (
     <div className="flex-1 flex items-center justify-center bg-slate-50">
       <p className="text-slate-400 font-bold">Выберите студента для мониторинга</p>
     </div>
   );
+
+  const [isLivePaused, setIsLivePaused] = useState(false);
   
   // Get latest session for this student
   const studentSessions = sessions.filter((s: any) => s.student_id === student.id);
+  const latestSession = studentSessions.length > 0 ? studentSessions[0] : null;
   const violations = studentSessions.length > 0 
     ? studentSessions[0].violations || []
     : [];
@@ -435,6 +752,15 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
       <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur sticky top-0 z-40">
         <div>
           <div className="flex items-center gap-3 mb-1">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all"
+                aria-label="Back to monitoring"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-500" />
+              </button>
+            )}
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">{student.full_name || student.name || 'Student'}</h2>
             <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">{student.group || 'Без группы'}</span>
           </div>
@@ -456,14 +782,19 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50 scroll-smooth">
-        <div className="aspect-video bg-slate-950 rounded-3xl relative flex items-center justify-center shadow-2xl border border-slate-900 overflow-hidden ring-1 ring-slate-800">
-           <Play className="w-16 h-16 text-white/5 animate-pulse" />
-           <div className="absolute top-6 left-6 flex items-center gap-2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black tracking-widest shadow-lg animate-pulse">
-             <div className="w-1.5 h-1.5 bg-white rounded-full" /> LIVE STREAMING
-           </div>
-           <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-white/80 font-mono tracking-tighter">
-             CAM_ID: 0824-A // ENCRYPTION: AES-256
-           </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="aspect-video bg-slate-950 rounded-3xl relative flex items-center justify-center shadow-2xl border border-slate-900 overflow-hidden ring-1 ring-slate-800">
+            <GridLiveStream studentId={student.id} kind="camera" />
+            <div className="absolute top-6 left-6 flex items-center gap-2 text-white text-[9px] px-3 py-1 rounded-full font-black tracking-widest shadow-lg bg-black/50">
+              <Video className="w-3.5 h-3.5" /> {t.studentStream}
+            </div>
+          </div>
+          <div className="aspect-video bg-slate-950 rounded-3xl relative flex items-center justify-center shadow-2xl border border-slate-900 overflow-hidden ring-1 ring-slate-800">
+            <GridLiveStream studentId={student.id} kind="screen" />
+            <div className="absolute top-6 left-6 flex items-center gap-2 text-white text-[9px] px-3 py-1 rounded-full font-black tracking-widest shadow-lg bg-black/50">
+              <Monitor className="w-3.5 h-3.5" /> {t.studentScreen}
+            </div>
+          </div>
         </div>
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
            <div className="flex items-center justify-between mb-8">

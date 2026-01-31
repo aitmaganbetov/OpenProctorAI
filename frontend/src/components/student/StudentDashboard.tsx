@@ -1,5 +1,6 @@
 // src/components/student/StudentDashboard.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as faceapi from 'face-api.js';
 import {
   AlertCircle,
   BarChart3,
@@ -33,6 +34,8 @@ import api from '../../services/api';
 interface StudentDashboardProps {
   onLogout?: () => void;
 }
+
+type StreamKind = 'camera' | 'screen';
 
 const OpenProctorLogo = ({ className = 'w-8 h-8' }) => (
   <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -69,6 +72,12 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 24, y: 24 });
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const widgetRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const height = isMinimized ? 96 : 180;
+    setPosition({ x: 24, y: window.innerHeight - height - 24 });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,8 +127,11 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
 
   const handleDragMove = (clientX: number, clientY: number) => {
     if (!dragging) return;
-    const nextX = Math.max(12, Math.min(window.innerWidth - 260, clientX - dragOffset.current.x));
-    const nextY = Math.max(12, Math.min(window.innerHeight - 180, clientY - dragOffset.current.y));
+    const rect = widgetRef.current?.getBoundingClientRect();
+    const width = rect?.width ?? 260;
+    const height = rect?.height ?? 180;
+    const nextX = Math.max(12, Math.min(window.innerWidth - width - 12, clientX - dragOffset.current.x));
+    const nextY = Math.max(12, Math.min(window.innerHeight - height - 12, clientY - dragOffset.current.y));
     setPosition({ x: nextX, y: nextY });
   };
 
@@ -153,8 +165,9 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
 
   return (
     <div
+      ref={widgetRef}
       className="fixed z-50 transition-all duration-300 ease-in-out"
-      style={{ left: position.x, bottom: position.y }}
+      style={{ left: position.x, top: position.y }}
     >
       <div
         className={`relative bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-300 ${
@@ -162,14 +175,14 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
         } ${isMinimized ? 'w-36 h-24' : 'w-72 aspect-video'}`}
       >
         <div
-          className="absolute inset-x-0 top-0 h-8 cursor-move"
+          className="absolute inset-x-0 top-0 h-8 cursor-move z-20"
           onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
           onTouchStart={(e) => {
             const t = e.touches[0];
             if (t) handleDragStart(t.clientX, t.clientY);
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center pointer-events-none">
           {stream ? (
             <video ref={videoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
           ) : cameraError ? (
@@ -215,17 +228,17 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
   );
 };
 
-const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProfileRefresh }: any) => {
+const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProfileRefresh, lang }: any) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [hasProfilePhoto, setHasProfilePhoto] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const startExam = async () => {
+  const startExam = async (examId?: number) => {
     setLoading(true);
     try {
-      const ok = await onStart();
+      const ok = await onStart(examId);
       if (!ok) {
         setLoading(false);
         return;
@@ -271,12 +284,18 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
     }
   };
 
+  const navLabels = {
+    ru: { dashboard: 'Дашборд', exams: 'Экзамены', results: 'Результаты', appeals: 'Апелляция', profile: 'Профиль' },
+    en: { dashboard: 'Dashboard', exams: 'Exams', results: 'Results', appeals: 'Appeals', profile: 'Profile' },
+    kk: { dashboard: 'Бақылау', exams: 'Емтихандар', results: 'Нәтижелер', appeals: 'Апелляция', profile: 'Профиль' },
+  }[lang || 'ru'];
+
   const navItems = [
-    { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
-    { id: 'exams', label: 'Экзамены', icon: BookOpen },
-    { id: 'results', label: 'Результаты', icon: BarChart3 },
-    { id: 'appeals', label: 'Апелляция', icon: MessageSquare },
-    { id: 'profile', label: 'Профиль', icon: User },
+    { id: 'dashboard', label: navLabels.dashboard, icon: LayoutDashboard },
+    { id: 'exams', label: navLabels.exams, icon: BookOpen },
+    { id: 'results', label: navLabels.results, icon: BarChart3 },
+    { id: 'appeals', label: navLabels.appeals, icon: MessageSquare },
+    { id: 'profile', label: navLabels.profile, icon: User },
   ];
 
   const checks = [
@@ -341,7 +360,6 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
       setEquipmentStatus((prev) => ({ ...prev, internet: online ? 'ok' : 'fail' }));
     };
 
-    runEquipmentCheck();
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     return () => {
@@ -544,7 +562,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                         </div>
                       </div>
                       <button
-                        onClick={exam.status === 'Доступен' ? startExam : undefined}
+                        onClick={exam.status === 'Доступен' ? () => startExam(exam.id) : undefined}
                         disabled={exam.status !== 'Доступен' || loading}
                         className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                           exam.status === 'Доступен'
@@ -701,12 +719,14 @@ const QuestionCard = ({ question, index, selectedAnswer, onAnswer, isFlagged, on
 );
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) => {
+  const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
   const [view, setView] = useState<'profile' | 'verification' | 'exam'>('profile');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [timeLeft, setTimeLeft] = useState(1800);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [warning, setWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('Внимание: посмотрите в камеру!');
@@ -715,11 +735,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [faceCheckLoading, setFaceCheckLoading] = useState(false);
   const [faceCheckError, setFaceCheckError] = useState<string | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [streamMode, setStreamMode] = useState<'camera' | 'screen'>('camera');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [modelsReady, setModelsReady] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeExamId, setActiveExamId] = useState<number | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const verificationVideoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const profileDescriptorRef = useRef<Float32Array | null>(null);
+  const lastViolationAtRef = useRef<number>(0);
+  const lastGazeViolationAtRef = useRef<number>(0);
+  const lastMultipleFacesAtRef = useRef<number>(0);
+  const lastObjectCheckAtRef = useRef<number>(0);
+  const lastObjectViolationAtRef = useRef<Record<string, number>>({});
+  const objectModelRef = useRef<any>(null);
+  const pendingViolationsRef = useRef<Array<Record<string, any>>>([]);
+  const streamPeersRef = useRef<Record<StreamKind, Map<string, RTCPeerConnection>>>(
+    { camera: new Map(), screen: new Map() }
+  );
+  const streamSocketRef = useRef<Record<StreamKind, WebSocket | null>>({ camera: null, screen: null });
+  const pendingStreamViewersRef = useRef<Record<StreamKind, Set<string>>>(
+    { camera: new Set(), screen: new Set() }
+  );
   const [profileData, setProfileData] = useState<{
+    id?: number;
     full_name?: string;
     email?: string;
     group?: string;
@@ -733,6 +775,58 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     setNotifications((prev) => [...prev, { id, msg }]);
     setTimeout(() => setNotifications((prev) => prev.filter((n) => n.id !== id)), 3000);
   };
+
+  const stopScreenShare = useCallback(() => {
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+    }
+    setScreenStream(null);
+    setStreamMode('camera');
+    streamPeersRef.current.screen.forEach((pc) => pc.close());
+    streamPeersRef.current.screen.clear();
+    pendingStreamViewersRef.current.screen.clear();
+  }, [screenStream]);
+
+  const startScreenShare = useCallback(async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      notify('Браузер не поддерживает демонстрацию экрана');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        track.onended = () => {
+          stopScreenShare();
+        };
+      }
+      setScreenStream(stream);
+      setStreamMode('screen');
+      notify('Экран транслируется');
+    } catch {
+      notify('Не удалось запустить демонстрацию экрана');
+    }
+  }, [notify, stopScreenShare]);
+
+  const sendStreamOffer = useCallback(async (kind: StreamKind, viewerId: string, selfId: string) => {
+    const pc = streamPeersRef.current[kind].get(viewerId);
+    const socket = streamSocketRef.current[kind];
+    if (!pc || !socket) return;
+
+    const hasTracks = pc.getSenders().some((s) => s.track);
+    if (!hasTracks || pc.signalingState !== 'stable') {
+      pendingStreamViewersRef.current[kind].add(viewerId);
+      return;
+    }
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription, from: selfId, to: viewerId }));
+    } else {
+      pendingStreamViewersRef.current[kind].add(viewerId);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -748,11 +842,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     }
   }, []);
 
+  useEffect(() => {
+    const handler = () => setLang((localStorage.getItem('lang') as any) || 'ru');
+    window.addEventListener('app:lang-change', handler as EventListener);
+    return () => window.removeEventListener('app:lang-change', handler as EventListener);
+  }, []);
+
   const loadProfile = useCallback(async () => {
     if (!studentId) return;
     try {
       const data = await api.getStudentProfile(studentId);
       setProfileData({
+        id: data.id,
         full_name: data.full_name,
         email: data.email,
         group: data.group,
@@ -769,6 +870,76 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     loadProfile();
   }, [loadProfile]);
 
+  const logViolation = useCallback(
+    async (payload: Record<string, any>) => {
+      try {
+        await api.reportViolation(activeSessionId || undefined, payload);
+      } catch {
+        pendingViolationsRef.current.push(payload);
+      }
+    },
+    [activeSessionId]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (pendingViolationsRef.current.length === 0) return;
+      const queue = [...pendingViolationsRef.current];
+      pendingViolationsRef.current = [];
+      for (const payload of queue) {
+        try {
+          await api.reportViolation(activeSessionId || undefined, payload);
+        } catch {
+          pendingViolationsRef.current.push(payload);
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    let active = true;
+    const MODEL_URL = '/models';
+    const loadModels = async () => {
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        if (active) setModelsReady(true);
+      } catch {
+        if (active) setModelsReady(false);
+      }
+    };
+    loadModels();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const buildDescriptor = async () => {
+      if (!modelsReady || !profileData?.photo_base64) return;
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('Image load failed'));
+          image.src = profileData.photo_base64 as string;
+        });
+        const detection = await faceapi
+          .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        profileDescriptorRef.current = detection?.descriptor || null;
+      } catch {
+        profileDescriptorRef.current = null;
+      }
+    };
+    buildDescriptor();
+  }, [modelsReady, profileData?.photo_base64]);
+
   const startCameraStream = useCallback(async () => {
     try {
       setCameraError(null);
@@ -778,8 +949,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 360 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       });
@@ -800,16 +971,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }, []);
 
   useEffect(() => {
-    if (view === 'exam') {
+    if (view === 'exam' || view === 'verification') {
       startCameraStream();
     } else {
+      stopScreenShare();
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       cameraStreamRef.current = null;
       setCameraStream(null);
     }
-  }, [view, startCameraStream]);
+  }, [view, startCameraStream, stopScreenShare]);
+
+  useEffect(() => {
+    if (view !== 'verification') return;
+    const video = verificationVideoRef.current;
+    if (!video || !cameraStream) return;
+    video.srcObject = cameraStream;
+    video.muted = true;
+    video.play().catch(() => {});
+  }, [view, cameraStream]);
 
   const captureSnapshot = async (): Promise<string> => {
     if (!navigator.mediaDevices?.getUserMedia && !cameraStreamRef.current) {
@@ -840,8 +1021,355 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     return canvas.toDataURL('image/jpeg', 0.8);
   };
 
+  const verifyFaceClient = async (snapshotBase64: string): Promise<{ verified: boolean; message?: string }> => {
+    if (!modelsReady) {
+      return { verified: false, message: 'Модели распознавания не загружены' };
+    }
+    if (!profileDescriptorRef.current) {
+      return { verified: false, message: 'Нет эталонного фото лица' };
+    }
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image load failed'));
+        image.src = snapshotBase64;
+      });
+      const detection = await faceapi
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+      if (!detection?.descriptor) {
+        return { verified: false, message: 'Лицо не обнаружено' };
+      }
+      const distance = faceapi.euclideanDistance(profileDescriptorRef.current, detection.descriptor);
+      const threshold = 0.6;
+      return {
+        verified: distance < threshold,
+        message: distance < threshold ? 'OK' : 'Лицо не совпадает',
+      };
+    } catch {
+      return { verified: false, message: 'Ошибка распознавания лица' };
+    }
+  };
+
+  const eyeAspectRatio = (points: faceapi.Point[]) => {
+    const dist = (a: faceapi.Point, b: faceapi.Point) => Math.hypot(a.x - b.x, a.y - b.y);
+    const p2p6 = dist(points[1], points[5]);
+    const p3p5 = dist(points[2], points[4]);
+    const p1p4 = dist(points[0], points[3]);
+    return (p2p6 + p3p5) / (2.0 * p1p4);
+  };
+
+  const verifyLivenessBlink = async (durationMs = 3000): Promise<boolean> => {
+    if (!modelsReady) return false;
+    const localStream = cameraStreamRef.current
+      ? null
+      : await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const stream = cameraStreamRef.current || localStream;
+    if (!stream) return false;
+
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await video.play();
+
+    const start = Date.now();
+    let blinked = false;
+    let moved = false;
+    let wasClosed = false;
+    const threshold = 0.25;
+    let lastCenter: { x: number; y: number } | null = null;
+
+    while (Date.now() - start < durationMs) {
+      const detection = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+        .withFaceLandmarks();
+      if (detection?.landmarks) {
+        const leftEye = detection.landmarks.getLeftEye();
+        const rightEye = detection.landmarks.getRightEye();
+        const ear = (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2;
+        const box = detection.detection.box;
+        const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        if (lastCenter) {
+          const dx = Math.abs(center.x - lastCenter.x);
+          const dy = Math.abs(center.y - lastCenter.y);
+          if (dx + dy > 12) moved = true;
+        }
+        lastCenter = center;
+        if (ear < threshold) {
+          wasClosed = true;
+        } else if (wasClosed) {
+          blinked = true;
+          break;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
+
+    return blinked || moved;
+  };
+
+  const effectiveStudentId = studentId ?? profileData?.id ?? null;
+
+  const detectGazeAway = async (snapshotBase64: string): Promise<{ away: boolean; message?: string }> => {
+    if (!modelsReady) return { away: false, message: 'Модели распознавания не загружены' };
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image load failed'));
+        image.src = snapshotBase64;
+      });
+      const detection = await faceapi
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+        .withFaceLandmarks();
+      if (!detection?.landmarks) {
+        return { away: true, message: 'Лицо не обнаружено' };
+      }
+
+      const jaw = detection.landmarks.getJawOutline();
+      const nose = detection.landmarks.getNose();
+      const leftEye = detection.landmarks.getLeftEye();
+      const rightEye = detection.landmarks.getRightEye();
+      if (!jaw.length || !nose.length || !leftEye.length || !rightEye.length) {
+        return { away: true, message: 'Глаза не обнаружены' };
+      }
+
+      const left = jaw[0].x;
+      const right = jaw[jaw.length - 1].x;
+      const width = Math.max(1, right - left);
+      const noseTip = nose[Math.floor(nose.length / 2)].x;
+      const faceCenter = (left + right) / 2;
+      const headOffset = Math.abs((noseTip - faceCenter) / width);
+
+      const eyeCenter = (eye: faceapi.Point[]) => {
+        const xs = eye.map((p) => p.x);
+        return xs.reduce((sum, x) => sum + x, 0) / xs.length;
+      };
+      const eyesCenter = (eyeCenter(leftEye) + eyeCenter(rightEye)) / 2;
+      const eyeOffset = Math.abs((eyesCenter - faceCenter) / width);
+
+      const isAway = headOffset > 0.18 || eyeOffset > 0.12;
+      return { away: isAway, message: isAway ? 'Отведение взгляда в сторону' : undefined };
+    } catch {
+      return { away: false, message: 'Ошибка проверки взгляда' };
+    }
+  };
+
+  const detectMultipleFaces = async (snapshotBase64: string): Promise<boolean> => {
+    if (!modelsReady) return false;
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image load failed'));
+        image.src = snapshotBase64;
+      });
+      const detections = await faceapi.detectAllFaces(
+        img,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 })
+      );
+      return detections.length > 1;
+    } catch {
+      return false;
+    }
+  };
+
+  const ensureObjectModel = useCallback(async () => {
+    if (objectModelRef.current) return objectModelRef.current;
+    const tf = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.esm.js');
+    const coco = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist/coco-ssd.esm.js');
+    try {
+      await tf.setBackend('webgl');
+    } catch {
+      // ignore
+    }
+    await tf.ready();
+    objectModelRef.current = await coco.load();
+    return objectModelRef.current;
+  }, []);
+
+  const detectObjects = useCallback(async (snapshotBase64: string): Promise<string[]> => {
+    try {
+      const model = await ensureObjectModel();
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image load failed'));
+        image.src = snapshotBase64;
+      });
+      const detections = await model.detect(img);
+      return detections
+        .filter((d: any) => d.score >= 0.45)
+        .map((d: any) => d.class);
+    } catch {
+      return [];
+    }
+  }, [ensureObjectModel]);
+
+  const handleSubmitExam = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const snapshot = await captureSnapshot();
+      const gaze = await detectGazeAway(snapshot);
+      if (gaze.away) {
+        setWarning(true);
+        setWarningMessage(gaze.message || 'Отведение взгляда в сторону');
+        if (effectiveStudentId) {
+          await logViolation({
+            violation_type: 'gaze_away',
+            timestamp: new Date().toISOString(),
+            confidence: 0.6,
+            student_id: effectiveStudentId,
+            exam_id: activeExamId,
+          });
+        }
+        notify(gaze.message || 'Отведение взгляда в сторону');
+        return;
+      }
+      setIsSubmitModalOpen(false);
+      notify('Экзамен завершен');
+    } catch {
+      notify('Не удалось завершить экзамен');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStreamForKind = useCallback(
+    (kind: StreamKind) => (kind === 'screen' ? screenStream : cameraStream),
+    [screenStream, cameraStream]
+  );
+
+  const attachStreamToPeers = useCallback(
+    (kind: StreamKind, stream: MediaStream | null) => {
+      if (!stream) return;
+      const viewers = Array.from(streamPeersRef.current[kind].keys());
+      viewers.forEach((viewerId) => {
+        const pc = streamPeersRef.current[kind].get(viewerId);
+        if (!pc) return;
+        stream.getTracks().forEach((track) => {
+          const exists = pc.getSenders().some((s) => s.track?.id === track.id);
+          if (!exists) pc.addTrack(track, stream);
+        });
+      });
+
+      const selfId = effectiveStudentId ? String(effectiveStudentId) : '';
+      if (selfId) {
+        viewers.forEach((viewerId) => {
+          if (
+            pendingStreamViewersRef.current[kind].has(viewerId) ||
+            streamSocketRef.current[kind]?.readyState === WebSocket.OPEN
+          ) {
+            sendStreamOffer(kind, viewerId, selfId).catch(() => {});
+          }
+        });
+      }
+    },
+    [effectiveStudentId, sendStreamOffer]
+  );
+
+  useEffect(() => {
+    if (view !== 'exam' || !effectiveStudentId) return;
+    const selfId = String(effectiveStudentId);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+
+    const initRoom = (kind: StreamKind) => {
+      const roomId = `${selfId}-${kind}`;
+      const wsUrl = `${wsProtocol}://${window.location.host}/api/v1/proctoring/ws/stream/${roomId}`;
+      const socket = new WebSocket(wsUrl);
+      streamSocketRef.current[kind] = socket;
+
+      const createPeerForViewer = (viewerId: string) => {
+        const existing = streamPeersRef.current[kind].get(viewerId);
+        if (existing) return existing;
+
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        });
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, from: selfId, to: viewerId }));
+          }
+        };
+
+        streamPeersRef.current[kind].set(viewerId, pc);
+
+        const sourceStream = getStreamForKind(kind);
+        if (sourceStream) {
+          sourceStream.getTracks().forEach((track) => {
+            pc.addTrack(track, sourceStream as MediaStream);
+          });
+        } else {
+          pendingStreamViewersRef.current[kind].add(viewerId);
+        }
+
+        return pc;
+      };
+
+      socket.onmessage = async (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg?.to && msg.to !== selfId) return;
+
+        if (msg.type === 'ready' && msg.from) {
+          createPeerForViewer(msg.from);
+          sendStreamOffer(kind, msg.from, selfId).catch(() => {});
+        }
+        if (msg.type === 'answer' && msg.sdp && msg.from) {
+          const pc = streamPeersRef.current[kind].get(msg.from);
+          if (!pc) return;
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+          if (pendingStreamViewersRef.current[kind].has(msg.from)) {
+            pendingStreamViewersRef.current[kind].delete(msg.from);
+            sendStreamOffer(kind, msg.from, selfId).catch(() => {});
+          }
+        }
+        if (msg.type === 'ice' && msg.candidate && msg.from) {
+          const pc = streamPeersRef.current[kind].get(msg.from);
+          if (!pc) return;
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch {
+            // ignore
+          }
+        }
+      };
+
+      return () => {
+        streamSocketRef.current[kind] = null;
+        socket.close();
+        streamPeersRef.current[kind].forEach((pc) => pc.close());
+        streamPeersRef.current[kind].clear();
+        pendingStreamViewersRef.current[kind].clear();
+      };
+    };
+
+    const cleanupCamera = initRoom('camera');
+    const cleanupScreen = initRoom('screen');
+
+    return () => {
+      cleanupCamera();
+      cleanupScreen();
+    };
+  }, [view, effectiveStudentId, sendStreamOffer, getStreamForKind]);
+
+  useEffect(() => {
+    attachStreamToPeers('camera', cameraStream);
+  }, [cameraStream, attachStreamToPeers]);
+
+  useEffect(() => {
+    attachStreamToPeers('screen', screenStream);
+  }, [screenStream, attachStreamToPeers]);
+
   const verifyFaceId = async () => {
-    if (!studentId) {
+    if (!effectiveStudentId) {
       notify('Не найден ID студента');
       return false;
     }
@@ -857,11 +1385,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     setFaceCheckLoading(true);
     setFaceCheckError(null);
     try {
-      const status = await api.checkStudentPhoto(studentId);
+      const status = await api.checkStudentPhoto(effectiveStudentId);
       if (!status?.has_photo) {
         notify('Сначала загрузите фото в профиле');
         return false;
       }
+      notify('Пожалуйста, моргните для проверки живности');
+      const isLive = await verifyLivenessBlink();
+      if (!isLive) {
+        notify('Не удалось подтвердить живность');
+        setFaceCheckError('Не удалось подтвердить живность');
+        return false;
+      }
+
       let snapshot: string;
       try {
         snapshot = await captureSnapshot();
@@ -875,7 +1411,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         notify(reason);
         return false;
       }
-      const result = await api.verifyStudentPhoto(studentId, snapshot);
+      const result = await verifyFaceClient(snapshot);
       if (!result?.verified) {
         notify(result?.message || 'FaceID не подтвержден');
         setFaceCheckError(result?.message || 'FaceID не подтвержден');
@@ -892,7 +1428,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     }
   };
 
-  const handleStartExam = async () => {
+  const handleStartExam = async (examId?: number) => {
+    if (examId) {
+      setActiveExamId(examId);
+    }
     setView('verification');
     return true;
   };
@@ -900,6 +1439,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const handleVerifyAndStart = async () => {
     const ok = await verifyFaceId();
     if (ok) {
+      if (activeExamId) {
+        try {
+          const session = await api.startExamSession(String(activeExamId));
+          if (session?.id) {
+            setActiveSessionId(String(session.id));
+          }
+        } catch {
+          // ignore
+        }
+      }
       setView('exam');
       return true;
     }
@@ -943,7 +1492,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }, [view]);
 
   useEffect(() => {
-    if (view !== 'exam' || !studentId) return;
+    if (view !== 'exam') return;
+    ensureObjectModel().catch(() => {});
+  }, [view, ensureObjectModel]);
+
+  useEffect(() => {
+    if (view !== 'exam' || !effectiveStudentId) return;
     let active = true;
     let inFlight = false;
 
@@ -952,13 +1506,102 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       inFlight = true;
       try {
         const snapshot = await captureSnapshot();
-        const result = await api.verifyStudentPhoto(studentId, snapshot);
+        const result = await verifyFaceClient(snapshot);
         if (!result?.verified) {
           setWarning(true);
           setWarningMessage(result?.message || 'Внимание: посмотрите в камеру!');
-        } else {
-          setWarning(false);
+          const now = Date.now();
+          if (now - lastViolationAtRef.current > 10000) {
+            lastViolationAtRef.current = now;
+            const isSubstitution = (result?.message || '').toLowerCase().includes('не совпадает');
+            await logViolation({
+              violation_type: isSubstitution ? 'face_substitution' : 'face_missing',
+              timestamp: new Date().toISOString(),
+              confidence: isSubstitution ? 0.8 : 0.5,
+              student_id: effectiveStudentId,
+              exam_id: activeExamId,
+            });
+          }
+          return;
         }
+
+        const multipleFaces = await detectMultipleFaces(snapshot);
+        if (multipleFaces) {
+          setWarning(true);
+          setWarningMessage('Обнаружено несколько лиц');
+          const now = Date.now();
+          if (now - lastMultipleFacesAtRef.current > 8000) {
+            lastMultipleFacesAtRef.current = now;
+            await logViolation({
+              violation_type: 'multiple_faces',
+              timestamp: new Date().toISOString(),
+              confidence: 0.8,
+              student_id: effectiveStudentId,
+              exam_id: activeExamId,
+            });
+          }
+          return;
+        }
+
+        const now = Date.now();
+        if (now - lastObjectCheckAtRef.current > 3000) {
+          lastObjectCheckAtRef.current = now;
+          const labels = await detectObjects(snapshot);
+          const suspicious = labels.filter((label) =>
+            ['cell phone', 'book', 'laptop', 'remote'].includes(label)
+          );
+          if (suspicious.length > 0) {
+            const label = suspicious[0];
+            const typeMap: Record<string, string> = {
+              'cell phone': 'phone_detected',
+              remote: 'phone_detected',
+              book: 'book_detected',
+              laptop: 'laptop_detected',
+            };
+            const messageMap: Record<string, string> = {
+              'cell phone': 'Обнаружен телефон',
+              remote: 'Обнаружен телефон',
+              book: 'Обнаружена книга',
+              laptop: 'Обнаружен ноутбук',
+            };
+            const violationType = typeMap[label] || 'object_detected';
+            const msg = messageMap[label] || 'Обнаружен посторонний предмет';
+            setWarning(true);
+            setWarningMessage(msg);
+            const lastAt = lastObjectViolationAtRef.current[violationType] || 0;
+            if (now - lastAt > 10000) {
+              lastObjectViolationAtRef.current[violationType] = now;
+              await logViolation({
+                violation_type: violationType,
+                timestamp: new Date().toISOString(),
+                confidence: 0.7,
+                student_id: effectiveStudentId,
+                exam_id: activeExamId,
+              });
+            }
+            return;
+          }
+        }
+
+        const gaze = await detectGazeAway(snapshot);
+        if (gaze.away) {
+          setWarning(true);
+          setWarningMessage(gaze.message || 'Отведение взгляда в сторону');
+          const now = Date.now();
+          if (now - lastGazeViolationAtRef.current > 8000) {
+            lastGazeViolationAtRef.current = now;
+            await logViolation({
+              violation_type: 'gaze_away',
+              timestamp: new Date().toISOString(),
+              confidence: 0.6,
+              student_id: effectiveStudentId,
+              exam_id: activeExamId,
+            });
+          }
+          return;
+        }
+
+        setWarning(false);
       } catch {
         setWarning(true);
         setWarningMessage('Не удалось проверить лицо');
@@ -968,13 +1611,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     };
 
     check();
-    const interval = setInterval(check, 5000);
+    const interval = setInterval(check, 1000);
 
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [view, studentId]);
+  }, [view, effectiveStudentId, activeSessionId]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -1012,6 +1655,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           studentId={studentId}
           profileData={profileData}
           onProfileRefresh={loadProfile}
+          lang={lang}
         />
       </>
     );
@@ -1025,6 +1669,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           <p className="text-slate-500 text-sm font-medium mb-8">
             Для начала экзамена подтвердите личность через камеру.
           </p>
+
+          <div className="mb-8">
+            <div className="relative w-full aspect-video rounded-3xl overflow-hidden bg-slate-900 shadow-xl">
+              {cameraStream ? (
+                <video ref={verificationVideoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs font-black uppercase tracking-widest">
+                  {cameraError || 'Нет видеопотока'}
+                </div>
+              )}
+              <div className="absolute top-3 left-3 bg-black/50 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                LIVE
+              </div>
+            </div>
+            {warning && (
+              <p className="mt-3 text-xs font-bold text-orange-500">{warningMessage}</p>
+            )}
+          </div>
 
           <div className="flex items-center justify-between gap-4">
             <button
@@ -1102,6 +1764,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           <div className="h-10 w-px bg-slate-100" />
 
           <div className="flex items-center gap-3">
+              <button
+                onClick={() => (streamMode === 'screen' ? stopScreenShare() : startScreenShare())}
+                className={`px-3 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  streamMode === 'screen'
+                    ? 'bg-orange-500 text-white border-orange-400'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {streamMode === 'screen' ? 'Экран: Вкл' : 'Экран: Выкл'}
+              </button>
             <button onClick={() => setView('profile')} className="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Домой">
               <LayoutDashboard size={20} />
             </button>
@@ -1216,8 +1888,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         onClose={() => setIsSubmitModalOpen(false)}
         title="Подтверждение"
         footer={
-          <button className="px-10 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl">
-            Отправить ответы
+          <button
+            onClick={handleSubmitExam}
+            disabled={isSubmitting}
+            className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl ${
+              isSubmitting ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-800'
+            }`}
+          >
+            {isSubmitting ? 'Проверка...' : 'Отправить ответы'}
           </button>
         }
       >

@@ -1,9 +1,9 @@
 # app/api/endpoints/proctoring.py
-from fastapi import APIRouter, Depends, Form, HTTPException, Body
+from fastapi import APIRouter, Depends, Form, HTTPException, Body, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.models import Violation, ExamSession, StudentProfile, User
-from typing import Dict, Any
+from app.models.models import Violation, ExamSession, StudentProfile, User, Exam
+from typing import Dict, Any, Set
 from datetime import datetime
 import base64
 import cv2
@@ -12,14 +12,80 @@ import face_recognition
 
 router = APIRouter(prefix="/proctoring", tags=["proctoring"])
 
+rooms: Dict[str, Set[WebSocket]] = {}
+
+@router.websocket("/ws/stream/{room_id}")
+async def stream_signaling(websocket: WebSocket, room_id: str):
+    await websocket.accept()
+    room = rooms.setdefault(room_id, set())
+    room.add(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            for conn in list(room):
+                if conn is not websocket:
+                    await conn.send_text(data)
+    except WebSocketDisconnect:
+        room.remove(websocket)
+        if not room:
+            rooms.pop(room_id, None)
+
 @router.post("/report-violation")
 async def report_violation(
-    session_id: int = Form(...),
-    violation_type: str = Form(...),
-    timestamp: str = Form(...),
-    confidence: float = Form(...),
+    session_id: int = Form(None),
+    violation_type: str = Form(None),
+    timestamp: str = Form(None),
+    confidence: float = Form(None),
+    payload: Dict[str, Any] = Body(None),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
+    if payload is None and request is not None:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = None
+
+    if payload:
+        session_id = session_id or payload.get("session_id")
+        student_id = payload.get("student_id")
+        exam_id = payload.get("exam_id")
+        violation_type = violation_type or payload.get("violation_type")
+        timestamp = timestamp or payload.get("timestamp")
+        confidence = confidence if confidence is not None else payload.get("confidence")
+
+    else:
+        student_id = None
+        exam_id = None
+
+    if session_id in ("", 0, "0"):
+        session_id = None
+
+    if isinstance(session_id, str) and session_id.isdigit():
+        session_id = int(session_id)
+
+    if session_id is None and student_id is not None:
+        session = (
+            db.query(ExamSession)
+            .filter(ExamSession.student_id == student_id)
+            .order_by(ExamSession.start_time.desc())
+            .first()
+        )
+        if not session:
+            exam = None
+            if exam_id is not None:
+                exam = db.query(Exam).filter(Exam.id == exam_id).first()
+            if not exam:
+                exam = db.query(Exam).first()
+            session = ExamSession(exam_id=exam.id if exam else None, student_id=student_id, status="active")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+        if session:
+            session_id = session.id
+
+    if session_id is None or violation_type is None or timestamp is None or confidence is None:
+        raise HTTPException(status_code=400, detail="Missing required fields")
     session = db.query(ExamSession).filter(ExamSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=403, detail="Invalid session")

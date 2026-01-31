@@ -139,11 +139,12 @@ class ApiService {
     return this.post<ExamSession>(`/exams/sessions/${sessionId}/finish`, { answers });
   }
 
-  async reportViolation(sessionId: string, violation: any): Promise<any> {
-    return this.post(`/proctoring/report-violation`, {
-      session_id: sessionId,
-      ...violation,
-    });
+  async reportViolation(sessionId: string | number | undefined, violation: any): Promise<any> {
+    const payload: Record<string, any> = { ...violation };
+    if (sessionId) {
+      payload.session_id = sessionId;
+    }
+    return this.post(`/proctoring/report-violation`, payload);
   }
 
   async assignExam(examId: number | string, payload: { student_id?: number; student_email?: string; due_date?: string; }): Promise<any> {
