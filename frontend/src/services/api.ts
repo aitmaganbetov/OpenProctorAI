@@ -25,9 +25,10 @@ export interface Exam {
 export interface Question {
   id: string;
   text: string;
-  type: 'multiple_choice' | 'short_answer' | 'essay';
+  type: 'single_choice' | 'multiple_choice' | 'short_answer' | 'essay';
   options?: string[];
   correct_answer?: string;
+  correct_answers?: number[];
   points: number;
 }
 
@@ -171,6 +172,24 @@ class ApiService {
     return result;
   }
 
+  async updateAssignment(assignmentId: number | string, payload: { due_date?: string; status?: string }): Promise<any> {
+    const url = `${API_BASE_URL}/exams/assignments/${assignmentId}`;
+    console.log('[API] PATCH request to:', url);
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Response:', result);
+    return result;
+  }
+
   async uploadStudentPhoto(studentId: number, photoBase64: string): Promise<any> {
     const url = `${API_BASE_URL}/proctoring/student/${studentId}/photo`;
     console.log('[API] POST photo upload to:', url);
@@ -187,6 +206,51 @@ class ApiService {
     const result = await response.json();
     console.log('[API] Photo upload response:', result);
     return result;
+  }
+
+  // Admin endpoints
+  async getAdminUsers(): Promise<any[]> {
+    return this.get<any[]>('/admin/users');
+  }
+
+  async createAdminUser(payload: { email: string; full_name?: string; name?: string; role?: string; password?: string }): Promise<any> {
+    return this.post<any>('/admin/users', payload);
+  }
+
+  async toggleAdminUser(userId: number): Promise<any> {
+    const url = `${API_BASE_URL}/admin/users/${userId}/toggle`;
+    console.log('[API] PATCH request to:', url);
+    const response = await fetch(url, { method: 'PATCH' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Response:', result);
+    return result;
+  }
+
+  async deleteAdminUser(userId: number): Promise<any> {
+    const url = `${API_BASE_URL}/admin/users/${userId}`;
+    console.log('[API] DELETE request to:', url);
+    const response = await fetch(url, { method: 'DELETE' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Response:', result);
+    return result;
+  }
+
+  async getAdminLogs(): Promise<any[]> {
+    return this.get<any[]>('/admin/logs');
+  }
+
+  async getServerStatus(): Promise<any> {
+    return this.get<any>('/admin/server-status');
   }
 
   async checkStudentPhoto(studentId: number): Promise<any> {

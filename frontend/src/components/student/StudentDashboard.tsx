@@ -1,5 +1,5 @@
 // src/components/student/StudentDashboard.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -28,6 +28,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react';
+import api from '../../services/api';
 
 interface StudentDashboardProps {
   onLogout?: () => void;
@@ -100,13 +101,59 @@ const FloatingCamera = ({ warning, message }: any) => {
   );
 };
 
-const ProfileView = ({ onStart, notify, onLogout }: any) => {
+const ProfileView = ({ onStart, notify, onLogout, studentId }: any) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
+  const [hasProfilePhoto, setHasProfilePhoto] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const startExam = () => {
+  const startExam = async () => {
     setLoading(true);
-    setTimeout(onStart, 1500);
+    try {
+      const ok = await onStart();
+      if (!ok) {
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // handled by parent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      if (!studentId) return;
+      try {
+        const status = await api.checkStudentPhoto(studentId);
+        setHasProfilePhoto(Boolean(status?.has_photo));
+      } catch {
+        setHasProfilePhoto(false);
+      }
+    };
+    loadStatus();
+  }, [studentId]);
+
+  const handlePhotoUpload = async (file?: File) => {
+    if (!file || !studentId) return;
+    setPhotoLoading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+      await api.uploadStudentPhoto(studentId, base64);
+      setHasProfilePhoto(true);
+      notify('Фото профиля сохранено');
+    } catch {
+      notify('Не удалось загрузить фото');
+    } finally {
+      setPhotoLoading(false);
+    }
   };
 
   const navItems = [
@@ -118,11 +165,75 @@ const ProfileView = ({ onStart, notify, onLogout }: any) => {
   ];
 
   const checks = [
-    { label: 'Веб-камера', icon: Camera, color: 'text-orange-500' },
-    { label: 'Микрофон', icon: Mic, color: 'text-indigo-500' },
-    { label: 'Интернет', icon: Wifi, color: 'text-blue-500' },
-    { label: 'Рабочий стол', icon: Monitor, color: 'text-slate-700' },
+    { key: 'camera', label: 'Веб-камера', icon: Camera, color: 'text-orange-500' },
+    { key: 'mic', label: 'Микрофон', icon: Mic, color: 'text-indigo-500' },
+    { key: 'internet', label: 'Интернет', icon: Wifi, color: 'text-blue-500' },
+    { key: 'desktop', label: 'Рабочий стол', icon: Monitor, color: 'text-slate-700' },
   ];
+
+  const [equipmentStatus, setEquipmentStatus] = useState<Record<string, 'ok' | 'fail' | 'checking'>>({
+    camera: 'checking',
+    mic: 'checking',
+    internet: 'checking',
+    desktop: 'checking',
+  });
+
+  const runEquipmentCheck = async () => {
+    setEquipmentStatus({
+      camera: 'checking',
+      mic: 'checking',
+      internet: 'checking',
+      desktop: 'checking',
+    });
+
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : false;
+    setEquipmentStatus((prev) => ({ ...prev, internet: online ? 'ok' : 'fail' }));
+
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+        setEquipmentStatus((prev) => ({ ...prev, camera: 'fail', mic: 'fail', desktop: 'ok' }));
+        return;
+      }
+
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+          setEquipmentStatus((prev) => ({ ...prev, camera: 'ok', mic: 'ok' }));
+          return;
+        } catch {
+          setEquipmentStatus((prev) => ({ ...prev, camera: 'fail', mic: 'fail' }));
+        }
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasCamera = devices.some((d) => d.kind === 'videoinput');
+      const hasMic = devices.some((d) => d.kind === 'audioinput');
+      setEquipmentStatus((prev) => ({
+        ...prev,
+        camera: hasCamera ? 'ok' : 'fail',
+        mic: hasMic ? 'ok' : 'fail',
+        desktop: 'ok',
+      }));
+    } catch {
+      setEquipmentStatus((prev) => ({ ...prev, camera: 'fail', mic: 'fail', desktop: 'ok' }));
+    }
+  };
+
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : false;
+      setEquipmentStatus((prev) => ({ ...prev, internet: online ? 'ok' : 'fail' }));
+    };
+
+    runEquipmentCheck();
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
 
   const availableExams = [
     { id: 1, title: 'Проектирование систем (Final)', date: 'Сегодня', duration: '30 мин', questions: 3, status: 'Доступен' },
@@ -192,20 +303,38 @@ const ProfileView = ({ onStart, notify, onLogout }: any) => {
                   Статус оборудования
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {checks.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-5 rounded-3xl border border-slate-50 bg-slate-50/50">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100 ${item.color}`}>
-                          <item.icon size={20} />
+                  {checks.map((item, i) => {
+                    const status = equipmentStatus[item.key] || 'checking';
+                    const statusLabel = status === 'ok' ? 'OK' : status === 'fail' ? 'Нет доступа' : 'Проверка';
+                    const statusClass =
+                      status === 'ok'
+                        ? 'text-green-500 border-green-50'
+                        : status === 'fail'
+                          ? 'text-rose-500 border-rose-50'
+                          : 'text-amber-500 border-amber-50';
+                    return (
+                      <div key={i} className="flex items-center justify-between p-5 rounded-3xl border border-slate-50 bg-slate-50/50">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100 ${item.color}`}>
+                            <item.icon size={20} />
+                          </div>
+                          <span className="font-black text-[10px] uppercase tracking-wider text-slate-600">{item.label}</span>
                         </div>
-                        <span className="font-black text-[10px] uppercase tracking-wider text-slate-600">{item.label}</span>
+                        <div className={`flex items-center gap-2 font-black text-[9px] bg-white px-3 py-1.5 rounded-full shadow-sm uppercase tracking-widest ${statusClass}`}>
+                          <CheckCircle size={12} strokeWidth={3} />
+                          {statusLabel}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-green-500 font-black text-[9px] bg-white px-3 py-1.5 rounded-full border border-green-50 shadow-sm uppercase tracking-widest">
-                        <CheckCircle size={12} strokeWidth={3} />
-                        OK
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={runEquipmentCheck}
+                    className="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                  >
+                    Проверить оборудование
+                  </button>
                 </div>
               </div>
 
@@ -357,6 +486,41 @@ const ProfileView = ({ onStart, notify, onLogout }: any) => {
                   <p className="text-sm font-bold text-green-600">Верифицирован</p>
                 </div>
               </div>
+              <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Фото профиля</p>
+                    <p className="text-sm font-bold text-slate-700">
+                      {hasProfilePhoto ? 'Загружено' : 'Не загружено'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handlePhotoUpload(e.target.files?.[0])}
+                    />
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={hasProfilePhoto || photoLoading}
+                      className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        hasProfilePhoto
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {photoLoading ? 'Загрузка...' : 'Добавить фото'}
+                    </button>
+                  </div>
+                </div>
+                {hasProfilePhoto && (
+                  <p className="mt-3 text-[10px] uppercase font-black text-slate-400 tracking-widest">
+                    Фото уже добавлено. Повторная загрузка недоступна.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -419,11 +583,89 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [warning, setWarning] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: number; msg: string }>>([]);
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [faceCheckLoading, setFaceCheckLoading] = useState(false);
+  const [faceCheckError, setFaceCheckError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const notify = (msg: string) => {
     const id = Date.now();
     setNotifications((prev) => [...prev, { id, msg }]);
     setTimeout(() => setNotifications((prev) => prev.filter((n) => n.id !== id)), 3000);
+  };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.id) {
+          setStudentId(Number(parsed.id));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const captureSnapshot = async (): Promise<string> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Camera not доступна');
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const video = videoRef.current || document.createElement('video');
+    videoRef.current = video;
+    video.srcObject = stream;
+    await video.play();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvasRef.current = canvas;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas не доступен');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    stream.getTracks().forEach((track) => track.stop());
+    return canvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const verifyFaceId = async () => {
+    if (!studentId) {
+      notify('Не найден ID студента');
+      return false;
+    }
+    setFaceCheckLoading(true);
+    setFaceCheckError(null);
+    try {
+      const status = await api.checkStudentPhoto(studentId);
+      if (!status?.has_photo) {
+        notify('Сначала загрузите фото в профиле');
+        return false;
+      }
+      const snapshot = await captureSnapshot();
+      const result = await api.verifyStudentPhoto(studentId, snapshot);
+      if (!result?.verified) {
+        notify(result?.message || 'FaceID не подтвержден');
+        setFaceCheckError(result?.message || 'FaceID не подтвержден');
+        return false;
+      }
+      return true;
+    } catch {
+      setFaceCheckError('Ошибка FaceID проверки');
+      notify('Ошибка FaceID проверки');
+      return false;
+    } finally {
+      setFaceCheckLoading(false);
+    }
+  };
+
+  const handleStartExam = async () => {
+    const ok = await verifyFaceId();
+    if (ok) {
+      setView('exam');
+    }
+    return ok;
   };
 
   const questions = [
@@ -489,7 +731,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const progress = (answeredCount / questions.length) * 100;
 
   if (view === 'profile') {
-    return <ProfileView onStart={() => setView('exam')} notify={notify} onLogout={onLogout} />;
+    return <ProfileView onStart={handleStartExam} notify={notify} onLogout={onLogout} studentId={studentId} />;
   }
 
   return (

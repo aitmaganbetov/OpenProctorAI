@@ -14,3 +14,4 @@ openai==1.10.0            # Или google-generativeai
 face-recognition==1.3.0   # Facial recognition
 opencv-python==4.8.1.78   # Image processing
 numpy==1.24.3             # Array operations
+psutil==5.9.8             # Server metrics

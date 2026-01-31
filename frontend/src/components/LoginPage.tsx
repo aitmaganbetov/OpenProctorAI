@@ -11,7 +11,7 @@ import {
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
-  login: (email: string, password: string, role: 'student' | 'teacher') => Promise<any>;
+  login: (email: string, password: string, role: 'student' | 'teacher' | 'admin') => Promise<any>;
   loading?: boolean;
   error?: string | null;
 }
@@ -69,7 +69,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, login, loa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const mappedRole = role === 'Student' ? 'student' : 'teacher';
+    const mappedRole = role === 'Admin' ? 'admin' : role === 'Teacher' ? 'teacher' : 'student';
     try {
       await login(email, password, mappedRole);
       onLoginSuccess();

@@ -1,5 +1,6 @@
 // src/App.tsx
 import { LoginPage } from './components/LoginPage';
+import { AdminPanel } from './components/admin/AdminPanel';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { useAuth } from './hooks/useAuth';
@@ -33,6 +34,7 @@ function App() {
 
   return (
     <>
+      {user?.role === 'admin' && <AdminPanel onLogout={logout} />}
       {user?.role === 'teacher' && <TeacherDashboard onLogout={logout} />}
       {user?.role === 'student' && <StudentDashboard onLogout={logout} />}
     </>

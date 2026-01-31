@@ -281,6 +281,37 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db)) -> Dict
         db.rollback()
         return {"error": str(e)}
 
+
+@router.patch("/assignments/{assignment_id}")
+def update_assignment(assignment_id: int, payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    assignment = db.query(ExamAssignment).filter(ExamAssignment.id == assignment_id).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    if assignment.status != "assigned":
+        raise HTTPException(status_code=409, detail="Assignment already started")
+
+    try:
+        if "due_date" in payload and payload["due_date"]:
+            assignment.due_date = datetime.fromisoformat(payload["due_date"])
+        if "status" in payload and payload["status"]:
+            assignment.status = payload["status"]
+
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+        return {
+            "id": assignment.id,
+            "exam_id": assignment.exam_id,
+            "student_id": assignment.student_id,
+            "assigned_at": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+            "due_date": assignment.due_date.isoformat() if assignment.due_date else None,
+            "status": assignment.status,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
 # Teacher Dashboard Endpoints
 @router.get("/dashboard/students")
 def get_all_students(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:

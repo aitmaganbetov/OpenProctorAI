@@ -734,12 +734,180 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
 }
 
 function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
-  const [newQ, setNewQ] = useState({ text: '', difficulty: 'Средне' });
+  const [newQ, setNewQ] = useState({
+    text: '',
+    difficulty: 'Средне',
+    answerType: 'single',
+    options: ['', '', '', ''],
+    correct: [0],
+  });
+  const [examMeta, setExamMeta] = useState({ title: '', description: '', duration: 60 });
+  const [builderQuestions, setBuilderQuestions] = useState<any[]>([
+    { text: '', answerType: 'single', options: ['', '', '', ''], correct: [0], points: 1 },
+  ]);
+  const [loadedExams, setLoadedExams] = useState<any[]>([]);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshExams = async () => {
+    setLoadingExams(true);
+    try {
+      const data = await api.getExams();
+      setLoadedExams(data || []);
+    } catch {
+      notify('Не удалось загрузить список тестов');
+    } finally {
+      setLoadingExams(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshExams();
+  }, []);
+
   const addQ = () => {
-    if (!newQ.text) return;
-    setQuestions([...questions, { id: Date.now().toString(), text: newQ.text, difficulty: newQ.difficulty, type: 'Тест' }]);
-    setNewQ({ text: '', difficulty: 'Средне' });
-    notify("Новый вопрос добавлен в базу");
+    if (!newQ.text.trim()) return;
+    setQuestions([
+      ...questions,
+      {
+        id: Date.now().toString(),
+        text: newQ.text,
+        difficulty: newQ.difficulty,
+        type: newQ.answerType === 'multiple' ? 'Множественный выбор' : 'Один ответ',
+        options: newQ.options,
+        correct: newQ.correct,
+      },
+    ]);
+    setNewQ({ text: '', difficulty: 'Средне', answerType: 'single', options: ['', '', '', ''], correct: [0] });
+    notify('Новый вопрос добавлен в базу');
+  };
+
+  const updateBuilderQuestion = (index: number, field: string, value: any) => {
+    const updated = [...builderQuestions];
+    updated[index] = { ...updated[index], [field]: value };
+    setBuilderQuestions(updated);
+  };
+
+  const updateBuilderOption = (qIndex: number, oIndex: number, value: string) => {
+    const updated = [...builderQuestions];
+    const options = [...(updated[qIndex].options || [])];
+    options[oIndex] = value;
+    updated[qIndex] = { ...updated[qIndex], options };
+    setBuilderQuestions(updated);
+  };
+
+  const toggleCorrect = (qIndex: number, oIndex: number) => {
+    const updated = [...builderQuestions];
+    const current = updated[qIndex];
+    if (current.answerType === 'multiple') {
+      const exists = current.correct.includes(oIndex);
+      const next = exists ? current.correct.filter((i: number) => i !== oIndex) : [...current.correct, oIndex];
+      updated[qIndex] = { ...current, correct: next };
+    } else {
+      updated[qIndex] = { ...current, correct: [oIndex] };
+    }
+    setBuilderQuestions(updated);
+  };
+
+  const addBuilderQuestion = () => {
+    setBuilderQuestions([
+      ...builderQuestions,
+      { text: '', answerType: 'single', options: ['', '', '', ''], correct: [0], points: 1 },
+    ]);
+  };
+
+  const removeBuilderQuestion = (index: number) => {
+    setBuilderQuestions(builderQuestions.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleImportTests = async (file: File) => {
+    const content = await file.text();
+    try {
+      if (file.name.toLowerCase().endsWith('.json')) {
+        const data = JSON.parse(content);
+        if (Array.isArray(data)) {
+          setBuilderQuestions(data);
+        } else {
+          setExamMeta({
+            title: data.title || '',
+            description: data.description || '',
+            duration: data.duration_minutes || 60,
+          });
+          if (Array.isArray(data.questions)) {
+            setBuilderQuestions(data.questions);
+          }
+        }
+        notify('Тест импортирован');
+        return;
+      }
+
+      const rows = content.split('\n').map((r) => r.trim()).filter(Boolean);
+      const parsed = rows.slice(1).map((row) => row.split(',').map((v) => v.trim()));
+      const imported = parsed.map((cols) => {
+        const [text, opt1, opt2, opt3, opt4, correct] = cols;
+        const correctIndexes = (correct || '')
+          .split('|')
+          .map((v) => Number(v) - 1)
+          .filter((v) => !Number.isNaN(v) && v >= 0);
+        return {
+          text,
+          answerType: correctIndexes.length > 1 ? 'multiple' : 'single',
+          options: [opt1, opt2, opt3, opt4].filter(Boolean),
+          correct: correctIndexes.length ? correctIndexes : [0],
+          points: 1,
+        };
+      });
+      setBuilderQuestions(imported);
+      notify('CSV импортирован');
+    } catch {
+      notify('Не удалось импортировать файл');
+    }
+  };
+
+  const createExam = async () => {
+    if (!examMeta.title.trim()) {
+      notify('Введите название теста');
+      return;
+    }
+    try {
+      await api.createExam({
+        title: examMeta.title,
+        description: examMeta.description,
+        duration_minutes: examMeta.duration,
+        questions: builderQuestions.map((q: any) => ({
+          text: q.text,
+          type: q.answerType === 'multiple' ? 'multiple_choice' : 'single_choice',
+          options: q.options,
+          correct_answers: q.correct,
+          points: q.points || 1,
+        })),
+      });
+      notify('Тест создан');
+      refreshExams();
+    } catch {
+      notify('Не удалось создать тест');
+    }
+  };
+
+  const exportExam = () => {
+    if (!examMeta.title.trim()) {
+      notify('Введите название теста');
+      return;
+    }
+    const payload = {
+      title: examMeta.title,
+      description: examMeta.description,
+      duration_minutes: examMeta.duration,
+      questions: builderQuestions,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${examMeta.title.replace(/\s+/g, '_').toLowerCase()}_test.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify('Экспорт выполнен');
   };
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
@@ -755,17 +923,254 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
               <BookOpen className="w-24 h-24 rotate-12" />
             </div>
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs relative">Конструктор вопроса</h3>
-            <textarea placeholder="Сформулируйте ваш вопрос здесь..." className="w-full p-6 border border-slate-100 rounded-[1.5rem] h-32 bg-slate-50 focus:bg-white outline-none focus:ring-4 focus:ring-orange-500/10 transition-all text-sm font-semibold relative" value={newQ.text} onChange={e => setNewQ({...newQ, text: e.target.value})} />
+            <textarea
+              placeholder="Сформулируйте ваш вопрос здесь..."
+              className="w-full p-6 border border-slate-100 rounded-[1.5rem] h-32 bg-slate-50 focus:bg-white outline-none focus:ring-4 focus:ring-orange-500/10 transition-all text-sm font-semibold relative"
+              value={newQ.text}
+              onChange={(e) => setNewQ({ ...newQ, text: e.target.value })}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Сложность:</span>
+                <select
+                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer"
+                  value={newQ.difficulty}
+                  onChange={(e) => setNewQ({ ...newQ, difficulty: e.target.value })}
+                >
+                  <option>Легко</option>
+                  <option>Средне</option>
+                  <option>Сложно</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Тип:</span>
+                <select
+                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer"
+                  value={newQ.answerType}
+                  onChange={(e) => setNewQ({ ...newQ, answerType: e.target.value })}
+                >
+                  <option value="single">Один ответ</option>
+                  <option value="multiple">Несколько ответов</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {newQ.options.map((opt, idx) => (
+                <label key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                  <input
+                    type={newQ.answerType === 'multiple' ? 'checkbox' : 'radio'}
+                    name="bank-correct"
+                    checked={newQ.correct.includes(idx)}
+                    onChange={() => {
+                      if (newQ.answerType === 'multiple') {
+                        const exists = newQ.correct.includes(idx);
+                        const next = exists ? newQ.correct.filter((i) => i !== idx) : [...newQ.correct, idx];
+                        setNewQ({ ...newQ, correct: next });
+                      } else {
+                        setNewQ({ ...newQ, correct: [idx] });
+                      }
+                    }}
+                    className="text-orange-500"
+                  />
+                  <input
+                    value={opt}
+                    onChange={(e) => {
+                      const next = [...newQ.options];
+                      next[idx] = e.target.value;
+                      setNewQ({ ...newQ, options: next });
+                    }}
+                    placeholder={`Вариант ${idx + 1}`}
+                    className="flex-1 bg-transparent outline-none text-sm font-semibold"
+                  />
+                </label>
+              ))}
+            </div>
             <div className="flex justify-between items-center relative">
-               <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Сложность:</span>
-                  <select className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer" value={newQ.difficulty} onChange={e => setNewQ({...newQ, difficulty: e.target.value})}>
-                     <option>Легко</option>
-                     <option>Средне</option>
-                     <option>Сложно</option>
-                  </select>
-               </div>
-               <button onClick={addQ} className="bg-orange-500 text-white px-10 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95">Сохранить</button>
+              <button
+                onClick={() => setNewQ({ ...newQ, options: [...newQ.options, ''] })}
+                className="text-xs font-black text-slate-400 uppercase tracking-widest"
+              >
+                + Вариант
+              </button>
+              <button
+                onClick={addQ}
+                className="bg-orange-500 text-white px-10 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Конструктор теста</h3>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/test_import_template.csv"
+                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                  download
+                >
+                  CSV шаблон
+                </a>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,.csv"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleImportTests(e.target.files[0])}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                >
+                  Импорт тестов
+                </button>
+                <button
+                  onClick={exportExam}
+                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                >
+                  Экспорт теста
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                value={examMeta.title}
+                onChange={(e) => setExamMeta({ ...examMeta, title: e.target.value })}
+                placeholder="Название теста"
+                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+              />
+              <input
+                type="number"
+                min={5}
+                value={examMeta.duration}
+                onChange={(e) => setExamMeta({ ...examMeta, duration: Number(e.target.value) })}
+                placeholder="Длительность"
+                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+              />
+              <input
+                value={examMeta.description}
+                onChange={(e) => setExamMeta({ ...examMeta, description: e.target.value })}
+                placeholder="Описание"
+                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+              />
+            </div>
+            <div className="space-y-4">
+              {builderQuestions.map((q: any, idx: number) => (
+                <div key={idx} className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs font-black uppercase tracking-widest">Вопрос {idx + 1}</p>
+                    {builderQuestions.length > 1 && (
+                      <button onClick={() => removeBuilderQuestion(idx)} className="text-red-500 text-xs font-bold">
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={q.text}
+                    onChange={(e) => updateBuilderQuestion(idx, 'text', e.target.value)}
+                    placeholder="Текст вопроса"
+                    className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                  />
+                  <div className="flex items-center gap-4">
+                    <select
+                      value={q.answerType}
+                      onChange={(e) => updateBuilderQuestion(idx, 'answerType', e.target.value)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-widest"
+                    >
+                      <option value="single">Один ответ</option>
+                      <option value="multiple">Несколько ответов</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={q.points || 1}
+                      onChange={(e) => updateBuilderQuestion(idx, 'points', Number(e.target.value))}
+                      className="w-24 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(q.options || []).map((opt: string, oIndex: number) => (
+                      <label key={oIndex} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                        <input
+                          type={q.answerType === 'multiple' ? 'checkbox' : 'radio'}
+                          name={`builder-${idx}`}
+                          checked={(q.correct || []).includes(oIndex)}
+                          onChange={() => toggleCorrect(idx, oIndex)}
+                          className="text-orange-500"
+                        />
+                        <input
+                          value={opt}
+                          onChange={(e) => updateBuilderOption(idx, oIndex, e.target.value)}
+                          placeholder={`Вариант ${oIndex + 1}`}
+                          className="flex-1 bg-transparent outline-none text-sm font-semibold"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => updateBuilderQuestion(idx, 'options', [...(q.options || []), ''])}
+                    className="text-xs font-black text-slate-400 uppercase tracking-widest"
+                  >
+                    + Вариант
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center">
+              <button onClick={addBuilderQuestion} className="px-4 py-2 text-xs font-black uppercase tracking-widest">
+                + Вопрос
+              </button>
+              <button onClick={createExam} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px]">
+                Создать тест
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Загруженные тесты</h3>
+              <button
+                onClick={refreshExams}
+                className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+              >
+                Обновить
+              </button>
+            </div>
+            {loadingExams && <p className="text-sm font-bold text-slate-400">Загрузка...</p>}
+            {!loadingExams && loadedExams.length === 0 && (
+              <p className="text-sm font-bold text-slate-400">Список пуст</p>
+            )}
+            <div className="grid grid-cols-1 gap-3">
+              {loadedExams.map((exam: any) => (
+                <div key={exam.id} className="border border-slate-100 rounded-2xl p-4 flex justify-between items-start">
+                  <div className="space-y-1">
+                    <p className="text-sm font-black text-slate-800 tracking-tight">{exam.title}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      {exam.duration_minutes} мин • {exam.questions?.length || 0} вопросов
+                    </p>
+                    {exam.description && (
+                      <p className="text-xs text-slate-500 font-semibold">{exam.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setExamMeta({
+                        title: exam.title || '',
+                        description: exam.description || '',
+                        duration: exam.duration_minutes || 60,
+                      });
+                      if (Array.isArray(exam.questions)) {
+                        setBuilderQuestions(exam.questions);
+                      }
+                      notify('Тест загружен в конструктор');
+                    }}
+                    className="text-[10px] font-black uppercase tracking-widest text-orange-500"
+                  >
+                    Открыть
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4">
@@ -791,10 +1196,139 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
   const [selectedGroup, setSelectedGroup] = useState('Все');
   const [timeLimit, setTimeLimit] = useState(60);
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
+  const [exams, setExams] = useState<any[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<string>('');
+  const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
+  const [editDueDate, setEditDueDate] = useState('');
 
   const uniqueGroups: string[] = Array.from(new Set(students.map((s: any) => s.group as string)));
   const groups: string[] = ['Все', ...uniqueGroups];
   const filtered = students.filter((s: any) => selectedGroup === 'Все' || s.group === selectedGroup);
+
+  useEffect(() => {
+    const loadExams = async () => {
+      setLoadingExams(true);
+      try {
+        const data = await api.getExams();
+        setExams(data || []);
+        if (data && data.length > 0) {
+          setSelectedExamId(String(data[0].id));
+        }
+      } catch {
+        notify('Не удалось загрузить список тестов');
+      } finally {
+        setLoadingExams(false);
+      }
+    };
+    loadExams();
+  }, []);
+
+  const refreshAssignments = async () => {
+    try {
+      const data = await api.getAssignments();
+      setAssignments(data || []);
+    } catch {
+      notify('Не удалось загрузить назначенные тесты');
+    }
+  };
+
+  useEffect(() => {
+    refreshAssignments();
+  }, []);
+
+  const toggleStudent = (id: number) => {
+    setSelectedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedStudents.size === filtered.length) {
+      setSelectedStudents(new Set());
+      return;
+    }
+    setSelectedStudents(new Set(filtered.map((s: any) => Number(s.id))));
+  };
+
+  const assignByGroup = async () => {
+    if (!selectedExamId) {
+      notify('Выберите тест');
+      return;
+    }
+    if (filtered.length === 0) {
+      notify('В группе нет студентов');
+      return;
+    }
+    try {
+      await Promise.all(
+        filtered.map((student: any) => api.assignExam(selectedExamId, { student_id: Number(student.id) }))
+      );
+      notify(`Тест назначен группе: ${selectedGroup}`);
+      refreshAssignments();
+    } catch {
+      notify('Не удалось назначить тест группе');
+    }
+  };
+
+  const startSession = async () => {
+    if (!selectedExamId) {
+      notify('Выберите тест');
+      return;
+    }
+    if (selectedStudents.size === 0) {
+      notify('Выберите студентов');
+      return;
+    }
+    try {
+      await Promise.all(
+        Array.from(selectedStudents).map((studentId) =>
+          api.assignExam(selectedExamId, { student_id: studentId })
+        )
+      );
+      notify(`Сессия запущена. Лимит: ${timeLimit} мин.`);
+      refreshAssignments();
+    } catch {
+      notify('Не удалось назначить тест');
+    }
+  };
+
+  const openEditAssignment = (assignment: any) => {
+    setEditingAssignment(assignment);
+    setEditDueDate(assignment.due_date ? assignment.due_date.slice(0, 16) : '');
+  };
+
+  const saveAssignment = async () => {
+    if (!editingAssignment) return;
+    try {
+      await api.updateAssignment(editingAssignment.id, {
+        due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
+      });
+      notify('Назначение обновлено');
+      setEditingAssignment(null);
+      refreshAssignments();
+    } catch {
+      notify('Не удалось обновить назначение');
+    }
+  };
+
+  const cancelAssignment = async (assignmentId: number) => {
+    try {
+      await api.deleteAssignment(assignmentId);
+      notify('Назначение отменено');
+      refreshAssignments();
+    } catch {
+      notify('Не удалось отменить назначение');
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
@@ -820,12 +1354,36 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                   <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-slate-800 mb-8 border-b border-slate-50 pb-4">
                     <CheckSquare className="w-5 h-5 text-orange-500"/> Список студентов ({filtered.length})
                   </h3>
+                    <div className="flex items-center justify-between mb-3">
+                    <button
+                      onClick={toggleAll}
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+                    >
+                      {selectedStudents.size === filtered.length ? 'Снять все' : 'Выбрать все'}
+                    </button>
+                      {selectedGroup !== 'Все' && (
+                        <button
+                          onClick={assignByGroup}
+                          className="text-[10px] font-black uppercase tracking-widest text-orange-500"
+                        >
+                          Назначить группе
+                        </button>
+                      )}
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      {selectedStudents.size}/{filtered.length}
+                    </span>
+                  </div>
                   <div className="space-y-2 max-h-[460px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-slate-100">
                      {filtered.map((s: any) => (
                        <div key={s.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-colors">
-                          <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 text-orange-500 focus:ring-orange-500 cursor-pointer" defaultChecked />
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 rounded-lg border-slate-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                            checked={selectedStudents.has(Number(s.id))}
+                            onChange={() => toggleStudent(Number(s.id))}
+                          />
                           <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-sm text-slate-800 truncate">{s.name}</span>
+                            <span className="font-bold text-sm text-slate-800 truncate">{s.full_name || s.name || 'Student'}</span>
                             <div className="flex gap-2 items-center">
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{s.id}</span>
                               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
@@ -846,10 +1404,18 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                     
                     <div className="space-y-8 relative">
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Выберите пакет вопросов</label>
-                        <select className="w-full p-4 rounded-2xl text-sm font-bold bg-slate-50 border border-slate-100 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer">
-                           <option>ИТ-01: Комплексная сертификация JS</option>
-                           <option>ИТ-02: Основы системного администрирования</option>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Выберите тест</label>
+                        <select
+                          className="w-full p-4 rounded-2xl text-sm font-bold bg-slate-50 border border-slate-100 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
+                          value={selectedExamId}
+                          onChange={(e) => setSelectedExamId(e.target.value)}
+                          disabled={loadingExams}
+                        >
+                          {exams.map((exam: any) => (
+                            <option key={exam.id} value={exam.id}>
+                              {exam.title}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
@@ -884,16 +1450,121 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                     </div>
                  </div>
 
-                 <button 
-                    onClick={() => notify(`Сессия запущена. Лимит: ${timeLimit} мин.`)} 
+                  <button 
+                    onClick={startSession} 
                     className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-[0.25em] text-[10px] shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
                  >
                    <Send className="w-4 h-4" /> Начать экзаменационную сессию
                  </button>
                </div>
             </div>
+
+              <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-black text-sm uppercase tracking-widest text-slate-800">Назначенные тесты</h3>
+                  <button
+                    onClick={refreshAssignments}
+                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                  >
+                    Обновить
+                  </button>
+                </div>
+                {assignments.length === 0 ? (
+                  <p className="text-sm font-bold text-slate-400">Список пуст</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                        <tr>
+                          <th className="pb-3">Экзамен</th>
+                          <th className="pb-3">Студент</th>
+                          <th className="pb-3">Статус</th>
+                          <th className="pb-3">Дедлайн</th>
+                          <th className="pb-3 text-right">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {assignments.map((a: any) => (
+                          <tr key={a.id} className="text-slate-700">
+                            <td className="py-3 font-bold">{a.exam_id}</td>
+                            <td className="py-3">{a.student_email || a.student_id}</td>
+                            <td className="py-3 uppercase text-[10px] font-black tracking-widest">
+                              {a.status}
+                            </td>
+                            <td className="py-3 text-xs">
+                              {a.due_date ? new Date(a.due_date).toLocaleString() : '—'}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  onClick={() => openEditAssignment(a)}
+                                  disabled={a.status !== 'assigned'}
+                                  className={`text-[10px] font-black uppercase tracking-widest ${
+                                    a.status === 'assigned' ? 'text-orange-500' : 'text-slate-300 cursor-not-allowed'
+                                  }`}
+                                >
+                                  Редактировать
+                                </button>
+                                <button
+                                  onClick={() => cancelAssignment(a.id)}
+                                  disabled={a.status !== 'assigned'}
+                                  className={`text-[10px] font-black uppercase tracking-widest ${
+                                    a.status === 'assigned' ? 'text-red-500' : 'text-slate-300 cursor-not-allowed'
+                                  }`}
+                                >
+                                  Отменить
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
          </div>
        </div>
+        {editingAssignment && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-6">
+            <div className="w-full max-w-md bg-white rounded-[2rem] border border-slate-200 shadow-2xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-slate-900">Редактировать назначение</h3>
+                <button onClick={() => setEditingAssignment(null)} className="p-2 text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Дедлайн</label>
+                  <input
+                    type="datetime-local"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 font-bold">
+                  Редактирование доступно, пока статус: assigned
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 mt-8">
+                <button
+                  onClick={() => setEditingAssignment(null)}
+                  className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={saveAssignment}
+                  className="px-6 py-2 bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
+                >
+                  Сохранить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
