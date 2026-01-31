@@ -9,8 +9,48 @@ from app.db.database import SessionLocal
 from app.models.models import User, UserRole
 from sqlalchemy.exc import SQLAlchemyError
 
+
 # Создаем таблицы автоматически (для Dev режима, в Проде нужен Alembic)
 Base.metadata.create_all(bind=engine)
+
+def ensure_student_profile_photo_column() -> None:
+    """Ensure MySQL schema contains photo storage columns for student profiles."""
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'student_profiles'
+                      AND COLUMN_NAME = 'photo_base64'
+                    """
+                )
+            )
+            has_photo_base64 = bool(result.scalar() or 0)
+            if not has_photo_base64:
+                conn.execute(text("ALTER TABLE student_profiles ADD COLUMN photo_base64 JSON NULL"))
+
+            result = conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'student_profiles'
+                      AND COLUMN_NAME = 'photo_path'
+                    """
+                )
+            )
+            has_photo_path = bool(result.scalar() or 0)
+            if not has_photo_path:
+                conn.execute(text("ALTER TABLE student_profiles ADD COLUMN photo_path VARCHAR(512) NULL"))
+    except SQLAlchemyError:
+        # Ignore schema fix errors in dev; database may be read-only or lack privileges.
+        pass
+
+ensure_student_profile_photo_column()
 
 app = FastAPI(title="Proctoring System API", version="1.0.0")
 

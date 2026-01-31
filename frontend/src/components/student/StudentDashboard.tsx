@@ -1,5 +1,5 @@
 // src/components/student/StudentDashboard.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -62,19 +62,133 @@ const Modal = ({ isOpen, onClose, title, children, footer }: any) => {
   );
 };
 
-const FloatingCamera = ({ warning, message }: any) => {
+const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [position, setPosition] = useState<{ x: number; y: number }>({ x: 24, y: 24 });
+  const [dragging, setDragging] = useState(false);
+  const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    const videoEl = videoRef.current;
+    if (!videoEl || !stream) {
+      setCameraReady(false);
+      return;
+    }
+
+    setCameraReady(false);
+
+    const attach = async () => {
+      try {
+        videoEl.srcObject = stream;
+        videoEl.muted = true;
+        await videoEl.play();
+      } catch {
+        if (!cancelled) setCameraReady(false);
+      }
+    };
+
+    attach();
+
+    const poll = () => {
+      if (cancelled) return;
+      if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+        setCameraReady(true);
+        return;
+      }
+      requestAnimationFrame(poll);
+    };
+
+    requestAnimationFrame(poll);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stream]);
+
+  const handleDragStart = (clientX: number, clientY: number) => {
+    setDragging(true);
+    dragOffset.current = {
+      x: clientX - position.x,
+      y: clientY - position.y,
+    };
+  };
+
+  const handleDragMove = (clientX: number, clientY: number) => {
+    if (!dragging) return;
+    const nextX = Math.max(12, Math.min(window.innerWidth - 260, clientX - dragOffset.current.x));
+    const nextY = Math.max(12, Math.min(window.innerHeight - 180, clientY - dragOffset.current.y));
+    setPosition({ x: nextX, y: nextY });
+  };
+
+  const handleDragEnd = () => {
+    setDragging(false);
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY);
+    const onMouseUp = () => handleDragEnd();
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (t) handleDragMove(t.clientX, t.clientY);
+    };
+    const onTouchEnd = () => handleDragEnd();
+
+    if (dragging) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('touchmove', onTouchMove);
+      window.addEventListener('touchend', onTouchEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [dragging]);
 
   return (
-    <div className={`fixed z-50 transition-all duration-500 ease-in-out ${isMinimized ? 'top-24 right-6' : 'bottom-8 right-8'}`}>
+    <div
+      className="fixed z-50 transition-all duration-300 ease-in-out"
+      style={{ left: position.x, bottom: position.y }}
+    >
       <div
-        className={`relative bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-500 ${
+        className={`relative bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-300 ${
           warning ? 'ring-4 ring-orange-500 animate-pulse' : 'ring-1 ring-slate-800'
         } ${isMinimized ? 'w-36 h-24' : 'w-72 aspect-video'}`}
       >
+        <div
+          className="absolute inset-x-0 top-0 h-8 cursor-move"
+          onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
+          onTouchStart={(e) => {
+            const t = e.touches[0];
+            if (t) handleDragStart(t.clientX, t.clientY);
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-          <User size={isMinimized ? 32 : 64} className="text-slate-700 opacity-40" />
+          {stream ? (
+            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
+          ) : cameraError ? (
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-4 text-center">
+              {cameraError}
+            </div>
+          ) : (
+            <User size={isMinimized ? 32 : 64} className="text-slate-700 opacity-40" />
+          )}
         </div>
+
+        {!cameraReady && (
+          <button
+            onClick={onRetry}
+            className="absolute bottom-3 left-3 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors"
+          >
+            Перезапустить
+          </button>
+        )}
 
         <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full">
           <div className={`w-1.5 h-1.5 rounded-full ${warning ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`} />
@@ -101,7 +215,7 @@ const FloatingCamera = ({ warning, message }: any) => {
   );
 };
 
-const ProfileView = ({ onStart, notify, onLogout, studentId }: any) => {
+const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProfileRefresh }: any) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [hasProfilePhoto, setHasProfilePhoto] = useState(false);
@@ -147,6 +261,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId }: any) => {
         reader.readAsDataURL(file);
       });
       await api.uploadStudentPhoto(studentId, base64);
+      await onProfileRefresh?.();
       setHasProfilePhoto(true);
       notify('Фото профиля сохранено');
     } catch {
@@ -249,15 +364,25 @@ const ProfileView = ({ onStart, notify, onLogout, studentId }: any) => {
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-orange-400" />
             <div className="relative inline-block mb-6 mt-4">
               <div className="w-32 h-32 rounded-full bg-slate-50 border-4 border-white shadow-md mx-auto overflow-hidden flex items-center justify-center ring-1 ring-slate-100">
-                <User size={64} className="text-slate-300" />
+                {profileData?.photo_base64 ? (
+                  <img src={profileData.photo_base64} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={64} className="text-slate-300" />
+                )}
               </div>
-              <div className="absolute bottom-1 right-1 bg-orange-500 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center shadow-lg">
-                <Check size={14} className="text-white" />
-              </div>
+              {(hasProfilePhoto || profileData?.is_verified) && (
+                <div className="absolute bottom-1 right-1 bg-orange-500 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center shadow-lg">
+                  <Check size={14} className="text-white" />
+                </div>
+              )}
             </div>
 
-            <h2 className="text-xl font-black text-slate-900 mb-1 tracking-tight">Александр Иванов</h2>
-            <p className="text-slate-400 font-black text-[9px] uppercase mb-8 tracking-[0.15em]">ID: 2024-08912 • OpenProctorAI Verified</p>
+            <h2 className="text-xl font-black text-slate-900 mb-1 tracking-tight">
+              {profileData?.full_name || '—'}
+            </h2>
+            <p className="text-slate-400 font-black text-[9px] uppercase mb-8 tracking-[0.15em]">
+              ID: {studentId ?? '—'} • {profileData?.is_active ? 'OpenProctorAI Verified' : 'Не активен'}
+            </p>
 
             <div className="space-y-1 text-left">
               {navItems.map((item) => (
@@ -471,19 +596,21 @@ const ProfileView = ({ onStart, notify, onLogout, studentId }: any) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">ФИО</p>
-                  <p className="text-sm font-bold text-slate-700">Иванов Александр Сергеевич</p>
+                  <p className="text-sm font-bold text-slate-700">{profileData?.full_name || '—'}</p>
                 </div>
                 <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Почта</p>
-                  <p className="text-sm font-bold text-slate-700">a.ivanov@openproctor.ai</p>
+                  <p className="text-sm font-bold text-slate-700">{profileData?.email || '—'}</p>
                 </div>
                 <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Группа</p>
-                  <p className="text-sm font-bold text-slate-700">Б-ПИ-21-4</p>
+                  <p className="text-sm font-bold text-slate-700">{profileData?.group || '—'}</p>
                 </div>
                 <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Статус</p>
-                  <p className="text-sm font-bold text-green-600">Верифицирован</p>
+                  <p className={`text-sm font-bold ${profileData?.is_active ? 'text-green-600' : 'text-rose-500'}`}>
+                    {profileData?.is_active ? 'Верифицирован' : 'Не активен'}
+                  </p>
                 </div>
               </div>
               <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
@@ -574,7 +701,7 @@ const QuestionCard = ({ question, index, selectedAnswer, onAnswer, isFlagged, on
 );
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) => {
-  const [view, setView] = useState<'profile' | 'exam'>('profile');
+  const [view, setView] = useState<'profile' | 'verification' | 'exam'>('profile');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
@@ -582,12 +709,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [warning, setWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('Внимание: посмотрите в камеру!');
   const [notifications, setNotifications] = useState<Array<{ id: number; msg: string }>>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [faceCheckLoading, setFaceCheckLoading] = useState(false);
   const [faceCheckError, setFaceCheckError] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [profileData, setProfileData] = useState<{
+    full_name?: string;
+    email?: string;
+    group?: string;
+    is_active?: boolean;
+    photo_base64?: string;
+    is_verified?: boolean;
+  } | null>(null);
 
   const notify = (msg: string) => {
     const id = Date.now();
@@ -609,16 +748,85 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     }
   }, []);
 
-  const captureSnapshot = async (): Promise<string> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Camera not доступна');
+  const loadProfile = useCallback(async () => {
+    if (!studentId) return;
+    try {
+      const data = await api.getStudentProfile(studentId);
+      setProfileData({
+        full_name: data.full_name,
+        email: data.email,
+        group: data.group,
+        is_active: data.is_active,
+        photo_base64: data.photo_base64,
+        is_verified: data.is_verified,
+      });
+    } catch {
+      // ignore
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }, [studentId]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const startCameraStream = useCallback(async () => {
+    try {
+      setCameraError(null);
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 360 },
+        },
+        audio: false,
+      });
+      stream.getVideoTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+    } catch (err: any) {
+      const reason = err?.name === 'NotAllowedError'
+        ? 'Доступ к камере запрещен'
+        : err?.name === 'NotFoundError'
+          ? 'Камера не найдена'
+          : 'Камера недоступна';
+      setCameraError(reason);
+      setCameraStream(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'exam') {
+      startCameraStream();
+    } else {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      cameraStreamRef.current = null;
+      setCameraStream(null);
+    }
+  }, [view, startCameraStream]);
+
+  const captureSnapshot = async (): Promise<string> => {
+    if (!navigator.mediaDevices?.getUserMedia && !cameraStreamRef.current) {
+      throw new Error('Camera не доступна');
+    }
+    const localStream = cameraStreamRef.current
+      ? null
+      : await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const stream = cameraStreamRef.current || localStream;
+    if (!stream) {
+      throw new Error('Camera не доступна');
+    }
     const video = videoRef.current || document.createElement('video');
     videoRef.current = video;
     video.srcObject = stream;
     await video.play();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     const canvas = canvasRef.current || document.createElement('canvas');
     canvasRef.current = canvas;
     canvas.width = video.videoWidth || 640;
@@ -626,7 +834,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas не доступен');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stream.getTracks().forEach((track) => track.stop());
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
     return canvas.toDataURL('image/jpeg', 0.8);
   };
 
@@ -635,6 +845,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       notify('Не найден ID студента');
       return false;
     }
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      notify('Камера доступна только на HTTPS или localhost');
+      return false;
+    }
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      notify('Браузер не поддерживает доступ к камере');
+      return false;
+    }
+    notify('Запуск верификации...');
     setFaceCheckLoading(true);
     setFaceCheckError(null);
     try {
@@ -643,13 +862,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         notify('Сначала загрузите фото в профиле');
         return false;
       }
-      const snapshot = await captureSnapshot();
+      let snapshot: string;
+      try {
+        snapshot = await captureSnapshot();
+      } catch (err: any) {
+        const reason = err?.name === 'NotAllowedError'
+          ? 'Доступ к камере запрещен'
+          : err?.name === 'NotFoundError'
+            ? 'Камера не найдена'
+            : 'Камера недоступна';
+        setFaceCheckError(reason);
+        notify(reason);
+        return false;
+      }
       const result = await api.verifyStudentPhoto(studentId, snapshot);
       if (!result?.verified) {
         notify(result?.message || 'FaceID не подтвержден');
         setFaceCheckError(result?.message || 'FaceID не подтвержден');
         return false;
       }
+      setWarning(false);
       return true;
     } catch {
       setFaceCheckError('Ошибка FaceID проверки');
@@ -661,11 +893,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   };
 
   const handleStartExam = async () => {
+    setView('verification');
+    return true;
+  };
+
+  const handleVerifyAndStart = async () => {
     const ok = await verifyFaceId();
     if (ok) {
       setView('exam');
+      return true;
     }
-    return ok;
+    return false;
   };
 
   const questions = [
@@ -705,14 +943,38 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }, [view]);
 
   useEffect(() => {
-    if (view !== 'exam') return;
-    const trigger = setTimeout(() => setWarning(true), 15000);
-    const stop = setTimeout(() => setWarning(false), 20000);
-    return () => {
-      clearTimeout(trigger);
-      clearTimeout(stop);
+    if (view !== 'exam' || !studentId) return;
+    let active = true;
+    let inFlight = false;
+
+    const check = async () => {
+      if (!active || inFlight) return;
+      inFlight = true;
+      try {
+        const snapshot = await captureSnapshot();
+        const result = await api.verifyStudentPhoto(studentId, snapshot);
+        if (!result?.verified) {
+          setWarning(true);
+          setWarningMessage(result?.message || 'Внимание: посмотрите в камеру!');
+        } else {
+          setWarning(false);
+        }
+      } catch {
+        setWarning(true);
+        setWarningMessage('Не удалось проверить лицо');
+      } finally {
+        inFlight = false;
+      }
     };
-  }, [view]);
+
+    check();
+    const interval = setInterval(check, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [view, studentId]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -731,7 +993,70 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const progress = (answeredCount / questions.length) * 100;
 
   if (view === 'profile') {
-    return <ProfileView onStart={handleStartExam} notify={notify} onLogout={onLogout} studentId={studentId} />;
+    return (
+      <>
+        <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
+          {notifications.map((n) => (
+            <div
+              key={n.id}
+              className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-[11px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4"
+            >
+              {n.msg}
+            </div>
+          ))}
+        </div>
+        <ProfileView
+          onStart={handleStartExam}
+          notify={notify}
+          onLogout={onLogout}
+          studentId={studentId}
+          profileData={profileData}
+          onProfileRefresh={loadProfile}
+        />
+      </>
+    );
+  }
+
+  if (view === 'verification') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 select-none">
+        <div className="max-w-xl w-full bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
+          <h3 className="text-xl font-black text-slate-900 mb-4 uppercase tracking-tight">Верификация перед экзаменом</h3>
+          <p className="text-slate-500 text-sm font-medium mb-8">
+            Для начала экзамена подтвердите личность через камеру.
+          </p>
+
+          <div className="flex items-center justify-between gap-4">
+            <button
+              onClick={() => setView('profile')}
+              className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+            >
+              Назад
+            </button>
+            <button
+              onClick={handleVerifyAndStart}
+              disabled={faceCheckLoading}
+              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                faceCheckLoading ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-orange-500'
+              }`}
+            >
+              {faceCheckLoading ? 'Проверка...' : 'Пройти верификацию'}
+            </button>
+          </div>
+        </div>
+
+        <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
+          {notifications.map((n) => (
+            <div
+              key={n.id}
+              className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-[11px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4"
+            >
+              {n.msg}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -878,7 +1203,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         </main>
       </div>
 
-      <FloatingCamera warning={warning} message="Внимание: посмотрите в камеру!" />
+      <FloatingCamera
+        warning={warning}
+        message={warningMessage}
+        stream={cameraStream}
+        cameraError={cameraError}
+        onRetry={startCameraStream}
+      />
 
       <Modal
         isOpen={isSubmitModalOpen}

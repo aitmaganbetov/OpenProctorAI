@@ -267,6 +267,10 @@ class ApiService {
     return result;
   }
 
+  async getStudentProfile(studentId: number): Promise<any> {
+    return this.get<any>(`/proctoring/student/${studentId}/profile`);
+  }
+
   async verifyStudentPhoto(studentId: number, examPhotoBase64: string): Promise<any> {
     const url = `${API_BASE_URL}/proctoring/student/${studentId}/verify-photo`;
     console.log('[API] POST photo verification to:', url);

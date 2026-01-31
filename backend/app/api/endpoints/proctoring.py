@@ -90,6 +90,43 @@ def check_student_photo(
         "is_verified": profile.is_verified if profile else False
     }
 
+
+@router.get("/student/{student_id}/profile")
+def get_student_profile(
+    student_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    user = db.query(User).filter(User.id == student_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    profile = db.query(StudentProfile).filter(StudentProfile.student_id == student_id).first()
+
+    photo_base64 = None
+    if profile and profile.photo_base64:
+        raw = profile.photo_base64
+        if isinstance(raw, str):
+            if raw.startswith("data:"):
+                photo_base64 = raw
+            else:
+                # Best-effort MIME detection for common image types
+                mime = "image/jpeg"
+                if raw.startswith("iVBOR"):
+                    mime = "image/png"
+                elif raw.startswith("R0lG"):
+                    mime = "image/gif"
+                photo_base64 = f"data:{mime};base64,{raw}"
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "is_active": user.is_active,
+        "photo_base64": photo_base64,
+        "is_verified": profile.is_verified if profile else False,
+    }
+
 @router.post("/student/{student_id}/verify-photo")
 def verify_student_photo(
     student_id: int,
