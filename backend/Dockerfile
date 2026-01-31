@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libopenblas-dev \
     liblapack-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Сначала копируем requirements, чтобы закешировать слои Docker

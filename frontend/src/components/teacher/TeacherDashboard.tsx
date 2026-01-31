@@ -1,49 +1,38 @@
 // src/components/teacher/TeacherDashboard.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import api from '../../services/api';
+
+const API_BASE_URL = '/api/v1';
 import {
   Activity,
   AlertTriangle,
-  Archive,
-  BarChart3,
   BookOpen,
-  Calendar,
-  Check,
-  CheckCircle,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   CheckSquare,
   ChevronRight,
   Clock,
-  Download,
   Eye,
   Copy,
-  FileText,
   Filter,
   FileUp,
   Fingerprint,
-  Flag,
-  LayoutDashboard,
+  Languages,
   LayoutGrid,
   LogOut,
   Mail,
   Layers,
-  Menu,
   Monitor,
-  MessageSquare,
-  Pause,
+  Moon,
   Play,
   Send,
   Search,
   Plus,
   RefreshCw,
-  ShieldCheck,
   Settings,
-  Terminal,
+  Sun,
   ToggleLeft,
   ToggleRight,
-  Upload,
   Trash2,
   User,
   Users,
@@ -62,7 +51,7 @@ const OpenProctorLogo = ({ className = "w-8 h-8" }) => (
 );
 
 // --- Компонент выпадающего меню профиля ---
-const ProfileMenu = ({ notify, onLogout }: any) => {
+const ProfileMenu = ({ notify, onLogout, theme }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -81,7 +70,7 @@ const ProfileMenu = ({ notify, onLogout }: any) => {
     <div className="relative" ref={menuRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 rounded-full border-2 border-white shadow-md hover:shadow-lg hover:ring-2 hover:ring-orange-500/30 transition-all flex items-center justify-center overflow-hidden active:scale-95"
+        className={`w-10 h-10 rounded-full border-2 shadow-md hover:shadow-lg hover:ring-2 hover:ring-orange-500/30 transition-all flex items-center justify-center overflow-hidden active:scale-95 ${theme === 'dark' ? 'border-slate-700' : 'border-white'}`}
       >
         <div className="bg-gradient-to-br from-slate-700 to-slate-900 w-full h-full flex items-center justify-center text-white text-[10px] font-black">
           ПР
@@ -89,18 +78,18 @@ const ProfileMenu = ({ notify, onLogout }: any) => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-          <div className="px-5 py-4 border-b border-slate-50 mb-1">
-            <p className="text-sm font-black text-slate-900 leading-tight">Профессор Разумов</p>
+        <div className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border py-2 z-[100] animate-in fade-in zoom-in-95 duration-200 origin-top-right ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className={`px-5 py-4 border-b mb-1 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-50'}`}>
+            <p className={`text-sm font-black leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Профессор Разумов</p>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.1em] mt-0.5">Главный администратор</p>
           </div>
           
           <div className="px-2 space-y-0.5">
             <button 
               onClick={() => { notify("Загрузка профиля..."); setIsOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-orange-600 rounded-xl transition-all font-semibold"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all font-semibold ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-700 hover:text-orange-500' : 'text-slate-600 hover:bg-slate-50 hover:text-orange-600'}`}
             >
-              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white transition-colors">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${theme === 'dark' ? 'bg-slate-700 text-slate-400' : 'bg-slate-50 text-slate-400 group-hover:bg-white'}`}>
                 <User className="w-4 h-4" />
               </div>
               Профиль
@@ -108,16 +97,16 @@ const ProfileMenu = ({ notify, onLogout }: any) => {
             
             <button 
               onClick={() => { notify("Настройки системы..."); setIsOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-orange-600 rounded-xl transition-all font-semibold"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all font-semibold ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-700 hover:text-orange-500' : 'text-slate-600 hover:bg-slate-50 hover:text-orange-600'}`}
             >
-              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-slate-700 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>
                 <Settings className="w-4 h-4" />
               </div>
               Настройки
             </button>
           </div>
           
-          <div className="my-2 border-t border-slate-50 mx-4"></div>
+          <div className={`my-2 border-t mx-4 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-50'}`}></div>
           
           <div className="px-2">
             <button 
@@ -126,9 +115,9 @@ const ProfileMenu = ({ notify, onLogout }: any) => {
                 setIsOpen(false);
                 onLogout?.();
               }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-all font-black uppercase tracking-wider"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 rounded-xl transition-all font-black uppercase tracking-wider ${theme === 'dark' ? 'hover:bg-red-500/10' : 'hover:bg-red-50'}`}
             >
-              <div className="w-8 h-8 rounded-lg bg-red-50/50 flex items-center justify-center text-red-400">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-red-400 ${theme === 'dark' ? 'bg-red-500/10' : 'bg-red-50/50'}`}>
                 <LogOut className="w-4 h-4" />
               </div>
               Выход
@@ -150,9 +139,35 @@ const getAvatarInitials = (name: string) => {
     .substring(0, 2);
 };
 
+interface TeacherDashboardProps {
+  onLogout?: () => void;
+}
+
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _onLogout }) => {
   const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as any) || 'light');
   const [activeTab, setActiveTab] = useState('proctoring');
+
+  // Apply theme to document
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const handleLangChange = (newLang: 'ru' | 'en' | 'kk') => {
+    setLang(newLang);
+    localStorage.setItem('lang', newLang);
+    window.dispatchEvent(new CustomEvent('app:lang-change'));
+  };
+
+  const handleThemeChange = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
   const [proctoringViewMode, setProctoringViewMode] = useState<'grid' | 'detail'>('grid');
   const [students, setStudents] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -358,6 +373,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
               onLogout={_onLogout}
               onBack={() => setProctoringViewMode('grid')}
               t={t}
+              lang={lang}
+              theme={theme}
+              onLangChange={handleLangChange}
+              onThemeChange={handleThemeChange}
             />
           );
         }
@@ -372,6 +391,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
             }}
             t={t}
             onLogout={_onLogout}
+            lang={lang}
+            theme={theme}
+            onLangChange={handleLangChange}
+            onThemeChange={handleThemeChange}
           />
         );
       case 'students':
@@ -383,19 +406,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
             onDelete={deleteStudent}
             onImport={importStudents}
             onLogout={_onLogout}
+            lang={lang}
+            theme={theme}
+            onLangChange={handleLangChange}
+            onThemeChange={handleThemeChange}
           />
         );
       case 'questions':
-        return <QuestionsBankView questions={questions} setQuestions={setQuestions} notify={notify} onLogout={_onLogout} />;
+        return <QuestionsBankView questions={questions} setQuestions={setQuestions} notify={notify} onLogout={_onLogout} lang={lang} theme={theme} onLangChange={handleLangChange} onThemeChange={handleThemeChange} />;
       case 'assignments':
-        return <TestAssignmentView students={students} notify={notify} onLogout={_onLogout} />;
+        return <TestAssignmentView students={students} notify={notify} onLogout={_onLogout} lang={lang} theme={theme} onLangChange={handleLangChange} onThemeChange={handleThemeChange} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className={`flex h-screen font-sans overflow-hidden ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
         {notifications.map(n => (
           <div key={n.id} className="bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm font-medium animate-in fade-in slide-in-from-bottom-4">
@@ -404,12 +431,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
         ))}
       </div>
 
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm shrink-0 relative z-50">
-        <div className="p-6 border-b border-slate-200 bg-white">
+      <aside className={`w-72 border-r flex flex-col shadow-sm shrink-0 relative z-50 ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className={`p-6 border-b ${theme === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
           <div className="flex items-center gap-3">
-            <OpenProctorLogo className="w-10 h-10 text-slate-800" />
+            <OpenProctorLogo className={`w-10 h-10 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`} />
             <div>
-              <h1 className="font-bold text-lg tracking-tight text-slate-800 flex items-baseline leading-none">
+              <h1 className={`font-bold text-lg tracking-tight flex items-baseline leading-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                 OpenProctor<span className="text-orange-500 ml-0.5">AI</span>
               </h1>
             </div>
@@ -421,29 +448,33 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
             active={activeTab === 'proctoring'} 
             onClick={() => setActiveTab('proctoring')} 
             icon={<Monitor className="w-5 h-5" />} 
-            label={t.proctoring} 
+            label={t.proctoring}
+            theme={theme}
           />
           <NavButton 
             active={activeTab === 'students'} 
             onClick={() => setActiveTab('students')} 
             icon={<Users className="w-5 h-5" />} 
-            label={t.students} 
+            label={t.students}
+            theme={theme}
           />
           <NavButton 
             active={activeTab === 'questions'} 
             onClick={() => setActiveTab('questions')} 
             icon={<BookOpen className="w-5 h-5" />} 
-            label={t.questions} 
+            label={t.questions}
+            theme={theme}
           />
           <NavButton 
             active={activeTab === 'assignments'} 
             onClick={() => setActiveTab('assignments')} 
             icon={<Send className="w-5 h-5" />} 
-            label={t.assignments} 
+            label={t.assignments}
+            theme={theme}
           />
 
           {activeTab === 'proctoring' && (
-            <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+            <div className={`mt-8 pt-6 border-t space-y-4 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
               <div className="px-2">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{t.activeSessions}</p>
                 
@@ -453,7 +484,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                   <select 
                     value={monitoringGroup}
                     onChange={(e) => setMonitoringGroup(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-black uppercase tracking-tight appearance-none outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200 transition-all cursor-pointer"
+                    className={`w-full pl-9 pr-3 py-2 border rounded-xl text-[11px] font-black uppercase tracking-tight appearance-none outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200 transition-all cursor-pointer ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-100'}`}
                   >
                     {allGroups.map(g => (
                       <option key={g} value={g}>{g === 'Все' ? t.allGroups : g}</option>
@@ -472,7 +503,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                     placeholder={t.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all"
+                    className={`w-full pl-9 pr-3 py-2 border rounded-xl text-[11px] font-bold outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:bg-slate-600' : 'bg-slate-50 border-slate-100 focus:bg-white'}`}
                   />
                 </div>
               </div>
@@ -485,11 +516,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                       setSelectedStudent(s);
                       setProctoringViewMode('detail');
                     }}
-                    className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all text-left ${selectedStudent?.id === s.id ? 'bg-orange-50 text-orange-700 shadow-sm' : 'hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all text-left ${
+                      selectedStudent?.id === s.id 
+                        ? theme === 'dark' ? 'bg-orange-500/20 text-orange-400 shadow-sm' : 'bg-orange-50 text-orange-700 shadow-sm'
+                        : theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
+                    }`}
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0">{getAvatarInitials(s.full_name || s.name || 'Student')}</div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${theme === 'dark' ? 'bg-slate-600 text-white' : 'bg-slate-200'}`}>{getAvatarInitials(s.full_name || s.name || 'Student')}</div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold truncate">{s.full_name || s.name || 'Student'}</p>
+                      <p className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-white' : ''}`}>{s.full_name || s.name || 'Student'}</p>
                       <div className="flex justify-between items-center mt-0.5">
                         <p className="text-[9px] text-slate-400 truncate font-black">{s.id}</p>
                         <p className="text-[9px] text-indigo-500 font-black">{s.group || 'Без группы'}</p>
@@ -497,7 +532,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
                     </div>
                   </button>
                 )) : (
-                  <p className="px-2 text-[10px] text-slate-400 font-medium italic">Студенты не найдены</p>
+                  <p className={`px-2 text-[10px] font-medium italic ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Студенты не найдены</p>
                 )}
               </div>
             </div>
@@ -505,7 +540,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _o
         </nav>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden relative z-0">
+      <main className={`flex-1 flex flex-col overflow-hidden relative z-0 ${theme === 'dark' ? 'bg-slate-900' : ''}`}>
         {renderContent()}
       </main>
     </div>
@@ -598,7 +633,7 @@ function GridLiveStream({ studentId, kind }: { studentId: number; kind: StreamKi
   );
 }
 
-function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t }: any) {
+function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t, lang, theme, onLangChange, onThemeChange }: any) {
   const sessionByStudent = useMemo(() => {
     const map = new Map<number, any>();
     sessions.forEach((session: any) => {
@@ -628,16 +663,47 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur sticky top-0 z-40">
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>
+      <header className={`px-8 py-5 border-b flex justify-between items-center sticky top-0 z-40 ${theme === 'dark' ? 'border-slate-700 bg-slate-800/90' : 'border-slate-200 bg-white/90'} backdrop-blur`}>
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-black tracking-tight text-slate-900">{t.proctoring}</h2>
-          <div className="flex items-center gap-2 bg-slate-500/10 px-3 py-1.5 rounded-full border border-slate-500/10">
+          <h2 className={`text-2xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.proctoring}</h2>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-500/10 border-slate-500/10'}`}>
             <LayoutGrid className="w-4 h-4 text-orange-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Grid View</span>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Grid View</span>
           </div>
         </div>
-        <ProfileMenu notify={notify} onLogout={onLogout} />
+        <div className="flex items-center gap-4">
+          {/* Language Selector */}
+          <div className="relative group">
+            <button className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}>
+              <Languages className="w-5 h-5" />
+              <span className="text-[10px] font-black uppercase">{lang}</span>
+            </button>
+            <div className={`absolute right-0 mt-2 w-32 border rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-[100] overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {(['ru', 'kk', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onLangChange(l)}
+                  className={`w-full px-4 py-3 text-[10px] font-black uppercase text-left transition-all ${
+                    lang === l ? 'text-orange-500' : 'text-slate-400'
+                  } ${theme === 'dark' ? 'hover:bg-orange-500/10 hover:text-orange-500' : 'hover:bg-orange-50 hover:text-orange-500'}`}
+                >
+                  {l === 'ru' ? 'Русский' : l === 'kk' ? 'Қазақша' : 'English'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeChange}
+            className={`p-2.5 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+
+          <ProfileMenu notify={notify} onLogout={onLogout} theme={theme} />
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -652,14 +718,14 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
               const groupLabel = student.group || 'Без группы';
 
               return (
-                <div key={student.id} className="flex flex-col rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-xl group bg-white">
-                  <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                <div key={student.id} className={`flex flex-col rounded-[2.5rem] border shadow-sm overflow-hidden transition-all hover:shadow-xl group ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <div className={`p-5 border-b flex justify-between items-center ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center text-xs font-black">
                         {getAvatarInitials(studentName)}
                       </div>
                       <div>
-                        <h3 className="text-sm font-black tracking-tight text-slate-900">{studentName}</h3>
+                        <h3 className={`text-sm font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{studentName}</h3>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{groupLabel} • {student.id}</p>
                       </div>
                     </div>
@@ -668,7 +734,7 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
                     </div>
                   </div>
 
-                  <div className="relative grid grid-cols-2 gap-px bg-slate-200">
+                  <div className={`relative grid grid-cols-2 gap-px ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`}>
                     <div className="aspect-square relative flex items-center justify-center overflow-hidden bg-slate-950">
                       <GridLiveStream studentId={student.id} kind="camera" />
                       <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/50 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
@@ -693,8 +759,8 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
                     <div className="space-y-2 h-32 overflow-y-auto scrollbar-hide">
                       {violations.length > 0 ? (
                         violations.map((v: any) => (
-                          <div key={v.id} className="flex justify-between items-center p-3 rounded-xl border text-[10px] bg-slate-50 border-slate-100">
-                            <div className="font-bold flex items-center gap-2">
+                          <div key={v.id} className={`flex justify-between items-center p-3 rounded-xl border text-[10px] ${theme === 'dark' ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className={`font-bold flex items-center gap-2 ${theme === 'dark' ? 'text-white' : ''}`}>
                               <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
                               {v.type}
                             </div>
@@ -712,7 +778,7 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
 
                   <button
                     onClick={() => onInspect?.(student)}
-                    className="w-full py-3 bg-slate-500/5 text-slate-400 text-[9px] font-black uppercase border-t border-slate-100 hover:bg-orange-500 hover:text-white transition-all"
+                    className={`w-full py-3 text-[9px] font-black uppercase border-t hover:bg-orange-500 hover:text-white transition-all ${theme === 'dark' ? 'bg-slate-700/50 text-slate-400 border-slate-700' : 'bg-slate-500/5 text-slate-400 border-slate-100'}`}
                   >
                     Full Inspection
                   </button>
@@ -721,7 +787,7 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-40 opacity-30">
+          <div className={`flex flex-col items-center justify-center py-40 opacity-30 ${theme === 'dark' ? 'text-slate-500' : ''}`}>
             <Monitor className="w-20 h-20 mb-4" />
             <h3 className="text-2xl font-black uppercase tracking-widest">No Active Students</h3>
           </div>
@@ -731,57 +797,156 @@ function ProctoringGridView({ students, sessions, notify, onInspect, onLogout, t
   );
 }
 
-function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogout, onBack, t }: any) {
+function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogout, onBack, t, lang, theme, onLangChange, onThemeChange }: any) {
   if (!student) return (
-    <div className="flex-1 flex items-center justify-center bg-slate-50">
-      <p className="text-slate-400 font-bold">Выберите студента для мониторинга</p>
+    <div className={`flex-1 flex items-center justify-center ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>
+      <p className={`font-bold ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Выберите студента для мониторинга</p>
     </div>
   );
 
-  const [isLivePaused, setIsLivePaused] = useState(false);
+  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  const [evidencePos, setEvidencePos] = useState<{ x: number; y: number } | null>(null);
+  const evidenceDragRef = useRef<{ active: boolean; offsetX: number; offsetY: number }>({
+    active: false,
+    offsetX: 0,
+    offsetY: 0,
+  });
   
   // Get latest session for this student
   const studentSessions = sessions.filter((s: any) => s.student_id === student.id);
-  const latestSession = studentSessions.length > 0 ? studentSessions[0] : null;
   const violations = studentSessions.length > 0 
     ? studentSessions[0].violations || []
     : [];
-  
+
+  const formatDuration = (seconds: number | null | undefined) => {
+    if (!seconds || !Number.isFinite(seconds)) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const openEvidence = (url: string) => {
+    const width = 960;
+    const height = 540;
+    const x = Math.max(24, (window.innerWidth - width) / 2);
+    const y = Math.max(24, (window.innerHeight - height) / 2);
+    setEvidencePos({ x, y });
+    // Convert MinIO URL to backend proxy URL
+    const proxyUrl = `${API_BASE_URL}/proctoring/video-proxy?url=${encodeURIComponent(url)}`;
+    setEvidenceUrl(proxyUrl);
+  };
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      if (!evidenceDragRef.current.active) return;
+      const x = event.clientX - evidenceDragRef.current.offsetX;
+      const y = event.clientY - evidenceDragRef.current.offsetY;
+      setEvidencePos({ x: Math.max(12, x), y: Math.max(12, y) });
+    };
+    const handleUp = () => {
+      evidenceDragRef.current.active = false;
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white">
-      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur sticky top-0 z-40">
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
+      <header className={`px-8 py-5 border-b flex justify-between items-center sticky top-0 z-40 backdrop-blur ${theme === 'dark' ? 'border-slate-700 bg-slate-800/90' : 'border-slate-200 bg-white/90'}`}>
         <div>
           <div className="flex items-center gap-3 mb-1">
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all"
+                className={`p-2 rounded-xl border transition-all ${theme === 'dark' ? 'border-slate-600 hover:bg-slate-700' : 'border-slate-200 hover:bg-slate-100'}`}
                 aria-label="Back to monitoring"
               >
-                <ChevronLeft className="w-4 h-4 text-slate-500" />
+                <ChevronLeft className={`w-4 h-4 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
               </button>
             )}
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{student.full_name || student.name || 'Student'}</h2>
-            <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">{student.group || 'Без группы'}</span>
+            <h2 className={`text-2xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.full_name || student.name || 'Student'}</h2>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>{student.group || 'Без группы'}</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+          <div className={`flex items-center gap-3 text-xs font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
             <span className="flex items-center gap-1"><Fingerprint className="w-3.5 h-3.5" /> {student.id}</span>
-            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+            <span className={`w-1 h-1 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-300'}`}></span>
             <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {student.email}</span>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <button
             onClick={onRefresh}
             className="px-5 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95"
           >
             <Eye className="w-3.5 h-3.5" /> Live
           </button>
-          <div className="h-8 w-px bg-slate-200"></div>
-          <ProfileMenu notify={notify} onLogout={onLogout} />
+          
+          {/* Language Selector */}
+          <div className="relative group">
+            <button className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}>
+              <Languages className="w-5 h-5" />
+              <span className="text-[10px] font-black uppercase">{lang}</span>
+            </button>
+            <div className={`absolute right-0 mt-2 w-32 border rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-[100] overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {(['ru', 'kk', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onLangChange(l)}
+                  className={`w-full px-4 py-3 text-[10px] font-black uppercase text-left transition-all ${
+                    lang === l ? 'text-orange-500' : 'text-slate-400'
+                  } ${theme === 'dark' ? 'hover:bg-orange-500/10 hover:text-orange-500' : 'hover:bg-orange-50 hover:text-orange-500'}`}
+                >
+                  {l === 'ru' ? 'Русский' : l === 'kk' ? 'Қазақша' : 'English'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeChange}
+            className={`p-2.5 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+
+          <div className={`h-8 w-px ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          <ProfileMenu notify={notify} onLogout={onLogout} theme={theme} />
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50 scroll-smooth">
+      <div className={`flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50/50'}`}>
+        {evidenceUrl && evidencePos && (
+          <div className="fixed inset-0 z-[200] pointer-events-none">
+            <div
+              className={`absolute rounded-3xl overflow-hidden shadow-2xl w-[960px] max-w-[90vw] ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+              style={{ left: evidencePos.x, top: evidencePos.y }}
+            >
+              <div
+                className={`flex items-center justify-between px-6 py-4 border-b cursor-move select-none pointer-events-auto ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}
+                onMouseDown={(event) => {
+                  evidenceDragRef.current.active = true;
+                  evidenceDragRef.current.offsetX = event.clientX - (evidencePos?.x ?? 0);
+                  evidenceDragRef.current.offsetY = event.clientY - (evidencePos?.y ?? 0);
+                }}
+              >
+                <h4 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Evidence</h4>
+                <button
+                  onClick={() => setEvidenceUrl(null)}
+                  className={`p-2 rounded-xl transition-all ${theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}
+                >
+                  <X className={`w-4 h-4 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
+                </button>
+              </div>
+              <div className="bg-black pointer-events-auto">
+                <video src={evidenceUrl} className="w-full h-full" controls playsInline crossOrigin="anonymous" />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="aspect-video bg-slate-950 rounded-3xl relative flex items-center justify-center shadow-2xl border border-slate-900 overflow-hidden ring-1 ring-slate-800">
             <GridLiveStream studentId={student.id} kind="camera" />
@@ -796,17 +961,17 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
             </div>
           </div>
         </div>
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
            <div className="flex items-center justify-between mb-8">
-             <h3 className="font-black text-lg flex items-center gap-3 text-slate-800 tracking-tight">
-               <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
+             <h3 className={`font-black text-lg flex items-center gap-3 tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+               <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-50 text-orange-500'}`}>
                  <AlertTriangle className="w-5 h-5" />
                </div>
                Журнал инцидентов AI
              </h3>
              <button
                onClick={onExport}
-               className="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest border-b-2 border-indigo-100 pb-0.5"
+               className={`text-xs font-black uppercase tracking-widest border-b-2 pb-0.5 ${theme === 'dark' ? 'text-indigo-400 hover:text-indigo-300 border-indigo-500/30' : 'text-indigo-600 hover:text-indigo-800 border-indigo-100'}`}
              >
                Экспорт истории
              </button>
@@ -816,14 +981,34 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
                 <tr className="text-slate-400 uppercase text-[9px] font-black tracking-[0.2em] px-4">
                   <th className="pb-4 pl-4">Тип аномалии</th>
                   <th className="pb-4">Метка времени</th>
+                  <th className="pb-4">Доказательство</th>
                   <th className="pb-4 text-right pr-4">Вердикт AI</th>
                 </tr>
               </thead>
               <tbody className="space-y-2">
                 {violations.length > 0 ? violations.map((v: any) => (
-                  <tr key={v.id} className="bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                    <td className="py-4 pl-4 rounded-l-xl font-bold text-slate-700 text-sm">{v.type}</td>
+                  <tr key={v.id} className={`transition-colors ${theme === 'dark' ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-slate-50/50 hover:bg-slate-50'}`}>
+                    <td className={`py-4 pl-4 rounded-l-xl font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>{v.type}</td>
                     <td className="py-4 font-mono text-[11px] text-slate-400 font-bold">{v.timestamp || 'N/A'}</td>
+                    <td className="py-4 text-[11px] font-bold">
+                      {v.video_proof_url ? (
+                        <button
+                          onClick={() => openEvidence(v.video_proof_url)}
+                          className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800"
+                        >
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                            <Play className="w-3 h-3" /> Play
+                          </span>
+                          {v.video_duration && (
+                            <span className="text-[10px] text-slate-400 font-black tracking-widest">
+                              {formatDuration(v.video_duration)}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
                     <td className="py-4 text-right pr-4 rounded-r-xl">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
                         v.severity_score && v.severity_score > 70 
@@ -835,7 +1020,7 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={3} className="py-12 text-center text-slate-400 font-bold text-sm bg-slate-50/30 rounded-3xl border-2 border-dashed border-slate-100">Нарушений в текущей сессии не выявлено</td></tr>
+                  <tr><td colSpan={4} className={`py-12 text-center font-bold text-sm rounded-3xl border-2 border-dashed ${theme === 'dark' ? 'text-slate-500 bg-slate-700/30 border-slate-600' : 'text-slate-400 bg-slate-50/30 border-slate-100'}`}>Нарушений в текущей сессии не выявлено</td></tr>
                 )}
               </tbody>
            </table>
@@ -845,7 +1030,7 @@ function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogo
   );
 }
 
-function StudentsManagementView({ students, notify, onCreate, onDelete, onImport, onLogout }: any) {
+function StudentsManagementView({ students, notify, onCreate, onDelete, onImport, onLogout, lang, theme, onLangChange, onThemeChange }: any) {
   const [newStudent, setNewStudent] = useState({ id: '', name: '', email: '', password: '', group: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -932,16 +1117,45 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">База студентов</h2>
-        <ProfileMenu notify={notify} onLogout={onLogout} />
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50/30'}`}>
+      <header className={`px-8 py-5 border-b flex justify-between items-center sticky top-0 z-40 ${theme === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+        <h2 className={`text-2xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>База студентов</h2>
+        <div className="flex items-center gap-4">
+          {/* Language Selector */}
+          <div className="relative group">
+            <button className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}>
+              <Languages className="w-5 h-5" />
+              <span className="text-[10px] font-black uppercase">{lang}</span>
+            </button>
+            <div className={`absolute right-0 mt-2 w-32 border rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-[100] overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {(['ru', 'kk', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onLangChange(l)}
+                  className={`w-full px-4 py-3 text-[10px] font-black uppercase text-left transition-all ${
+                    lang === l ? 'text-orange-500' : 'text-slate-400'
+                  } ${theme === 'dark' ? 'hover:bg-orange-500/10 hover:text-orange-500' : 'hover:bg-orange-50 hover:text-orange-500'}`}
+                >
+                  {l === 'ru' ? 'Русский' : l === 'kk' ? 'Қазақша' : 'English'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeChange}
+            className={`p-2.5 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          <ProfileMenu notify={notify} onLogout={onLogout} theme={theme} />
+        </div>
       </header>
       
       <div className="flex-1 overflow-y-auto p-8 space-y-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest">Новая запись</h3>
+            <h3 className={`text-lg font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Новая запись</h3>
             <button
               onClick={handleImportClick}
               className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95"
@@ -957,48 +1171,48 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
             />
           </div>
 
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-8">
+          <div className={`p-8 rounded-[2rem] border shadow-sm space-y-8 ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Студента</label>
                 <div className="relative group">
                   <Fingerprint className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
-                  <input placeholder="ID-0000" className="w-full pl-11 pr-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/20 outline-none transition-all" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                  <input placeholder="ID-0000" className={`w-full pl-11 pr-4 py-3.5 border rounded-2xl text-sm font-bold outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/30' : 'border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/20'}`} value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ФИО Участника</label>
-                <input placeholder="Имя Фамилия" className="w-full px-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                <input placeholder="Имя Фамилия" className={`w-full px-4 py-3.5 border rounded-2xl text-sm font-bold outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-4 focus:ring-orange-500/10' : 'border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-orange-500/10'}`} value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Группа</label>
                 <div className="relative">
                   <Layers className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input placeholder="Напр. Группа-А" className="w-full pl-11 pr-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.group} onChange={e => setNewStudent({...newStudent, group: e.target.value})} />
+                  <input placeholder="Напр. Группа-А" className={`w-full pl-11 pr-4 py-3.5 border rounded-2xl text-sm font-bold outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-4 focus:ring-orange-500/10' : 'border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-orange-500/10'}`} value={newStudent.group} onChange={e => setNewStudent({...newStudent, group: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Эл. почта</label>
-                <input placeholder="email@uni.edu" className="w-full px-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} />
+                <input placeholder="email@uni.edu" className={`w-full px-4 py-3.5 border rounded-2xl text-sm font-bold outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-4 focus:ring-orange-500/10' : 'border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-orange-500/10'}`} value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Пароль доступа</label>
                 <div className="relative">
-                  <input placeholder="********" className="w-full pl-4 pr-12 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-mono" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
-                  <button onClick={generatePassword} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
+                  <input placeholder="********" className={`w-full pl-4 pr-12 py-3.5 border rounded-2xl text-sm font-bold font-mono outline-none transition-all ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-4 focus:ring-orange-500/10' : 'border-slate-100 bg-slate-50 focus:bg-white focus:ring-4 focus:ring-orange-500/10'}`} value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
+                  <button onClick={generatePassword} className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 text-orange-500 rounded-xl transition-all ${theme === 'dark' ? 'hover:bg-orange-500/20' : 'hover:bg-orange-50'}`}>
                     <RefreshCw className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
-            <button onClick={addStudent} className="w-full bg-slate-900 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-[0.99]">
+            <button onClick={addStudent} className={`w-full px-6 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.99] ${theme === 'dark' ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-200'}`}>
               <Plus className="w-4 h-4" /> Зарегистрировать в OpenProctorAI
             </button>
           </div>
 
-          <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+          <div className={`rounded-[2rem] border overflow-hidden shadow-sm ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <table className="w-full text-left">
-              <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+              <thead className={`border-b text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ${theme === 'dark' ? 'bg-slate-700/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'}`}>
                 <tr>
                   <th className="px-8 py-6 text-center w-24">Аватар</th>
                   <th className="px-4 py-6">ID & ФИО</th>
@@ -1007,22 +1221,22 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
                   <th className="px-8 py-6 text-right">Опции</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-700' : 'divide-slate-50'}`}>
                 {students.map((s: any) => (
-                  <tr key={s.id} className="hover:bg-slate-50/30 transition-colors">
+                  <tr key={s.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'}`}>
                     <td className="px-8 py-5">
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xs font-black mx-auto shadow-sm ring-4 ring-white">{getAvatarInitials(s.full_name || s.name || 'S')}</div>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xs font-black mx-auto shadow-sm ring-4 ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400 ring-slate-800' : 'bg-indigo-50 text-indigo-700 ring-white'}`}>{getAvatarInitials(s.full_name || s.name || 'S')}</div>
                     </td>
                     <td className="px-4 py-5">
-                      <p className="font-black text-slate-900 text-sm tracking-tight">{s.full_name || s.name || 'Student'}</p>
+                      <p className={`font-black text-sm tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{s.full_name || s.name || 'Student'}</p>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{s.id}</p>
                     </td>
                     <td className="px-8 py-5 text-center">
-                      <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-200">{s.group || 'Без группы'}</span>
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${theme === 'dark' ? 'bg-slate-700 text-slate-400 border-slate-600' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{s.group || 'Без группы'}</span>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <code className="bg-slate-50 px-3 py-1.5 rounded-lg text-[11px] font-mono text-slate-500 font-bold border border-slate-200 tracking-tighter shadow-inner">{s.password || '******'}</code>
+                        <code className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold tracking-tighter shadow-inner ${theme === 'dark' ? 'bg-slate-700 text-slate-400 border border-slate-600' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>{s.password || '******'}</code>
                         <button
                           onClick={async () => {
                             try {
@@ -1032,7 +1246,7 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
                               notify("Не удалось скопировать");
                             }
                           }}
-                          className="text-slate-300 hover:text-orange-600 transition-colors active:scale-90 p-1"
+                          className={`transition-colors active:scale-90 p-1 ${theme === 'dark' ? 'text-slate-500 hover:text-orange-500' : 'text-slate-300 hover:text-orange-600'}`}
                         >
                           <Copy className="w-4 h-4" />
                         </button>
@@ -1064,7 +1278,7 @@ function StudentsManagementView({ students, notify, onCreate, onDelete, onImport
   );
 }
 
-function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
+function QuestionsBankView({ questions, setQuestions, notify, onLogout, lang, theme, onLangChange, onThemeChange }: any) {
   const [newQ, setNewQ] = useState({
     text: '',
     difficulty: 'Средне',
@@ -1205,7 +1419,8 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
         title: examMeta.title,
         description: examMeta.description,
         duration_minutes: examMeta.duration,
-        questions: builderQuestions.map((q: any) => ({
+        questions: builderQuestions.map((q: any, idx: number) => ({
+          id: q.id || idx + 1,
           text: q.text,
           type: q.answerType === 'multiple' ? 'multiple_choice' : 'single_choice',
           options: q.options,
@@ -1241,30 +1456,59 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
     notify('Экспорт выполнен');
   };
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Банк вопросов</h2>
-        <ProfileMenu notify={notify} onLogout={onLogout} />
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50/30'}`}>
+      <header className={`px-8 py-5 border-b flex justify-between items-center sticky top-0 z-40 ${theme === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+        <h2 className={`text-2xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Банк вопросов</h2>
+        <div className="flex items-center gap-4">
+          {/* Language Selector */}
+          <div className="relative group">
+            <button className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}>
+              <Languages className="w-5 h-5" />
+              <span className="text-[10px] font-black uppercase">{lang}</span>
+            </button>
+            <div className={`absolute right-0 mt-2 w-32 border rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-[100] overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {(['ru', 'kk', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onLangChange(l)}
+                  className={`w-full px-4 py-3 text-[10px] font-black uppercase text-left transition-all ${
+                    lang === l ? 'text-orange-500' : 'text-slate-400'
+                  } ${theme === 'dark' ? 'hover:bg-orange-500/10 hover:text-orange-500' : 'hover:bg-orange-50 hover:text-orange-500'}`}
+                >
+                  {l === 'ru' ? 'Русский' : l === 'kk' ? 'Қазақша' : 'English'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeChange}
+            className={`p-2.5 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          <ProfileMenu notify={notify} onLogout={onLogout} theme={theme} />
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 text-slate-50">
+          <div className={`p-8 rounded-[2rem] border shadow-sm space-y-6 text-left relative overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`absolute top-0 right-0 p-8 ${theme === 'dark' ? 'text-slate-700' : 'text-slate-50'}`}>
               <BookOpen className="w-24 h-24 rotate-12" />
             </div>
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs relative">Конструктор вопроса</h3>
+            <h3 className={`font-black uppercase tracking-widest text-xs relative ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Конструктор вопроса</h3>
             <textarea
               placeholder="Сформулируйте ваш вопрос здесь..."
-              className="w-full p-6 border border-slate-100 rounded-[1.5rem] h-32 bg-slate-50 focus:bg-white outline-none focus:ring-4 focus:ring-orange-500/10 transition-all text-sm font-semibold relative"
+              className={`w-full p-6 border rounded-[1.5rem] h-32 outline-none focus:ring-4 transition-all text-sm font-semibold relative ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:bg-slate-600 focus:ring-orange-500/10' : 'bg-slate-50 border-slate-100 focus:bg-white focus:ring-orange-500/10'}`}
               value={newQ.text}
               onChange={(e) => setNewQ({ ...newQ, text: e.target.value })}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${theme === 'dark' ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Сложность:</span>
                 <select
-                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer"
+                  className={`bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer ${theme === 'dark' ? 'text-white' : ''}`}
                   value={newQ.difficulty}
                   onChange={(e) => setNewQ({ ...newQ, difficulty: e.target.value })}
                 >
@@ -1273,10 +1517,10 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                   <option>Сложно</option>
                 </select>
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${theme === 'dark' ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Тип:</span>
                 <select
-                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer"
+                  className={`bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer ${theme === 'dark' ? 'text-white' : ''}`}
                   value={newQ.answerType}
                   onChange={(e) => setNewQ({ ...newQ, answerType: e.target.value })}
                 >
@@ -1287,7 +1531,7 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {newQ.options.map((opt, idx) => (
-                <label key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                <label key={idx} className={`flex items-center gap-3 border rounded-xl px-3 py-2 ${theme === 'dark' ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-100'}`}>
                   <input
                     type={newQ.answerType === 'multiple' ? 'checkbox' : 'radio'}
                     name="bank-correct"
@@ -1311,7 +1555,7 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                       setNewQ({ ...newQ, options: next });
                     }}
                     placeholder={`Вариант ${idx + 1}`}
-                    className="flex-1 bg-transparent outline-none text-sm font-semibold"
+                    className={`flex-1 bg-transparent outline-none text-sm font-semibold ${theme === 'dark' ? 'text-white placeholder-slate-500' : ''}`}
                   />
                 </label>
               ))}
@@ -1332,13 +1576,13 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left">
+          <div className={`p-8 rounded-[2rem] border shadow-sm space-y-6 text-left ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Конструктор теста</h3>
+              <h3 className={`font-black uppercase tracking-widest text-xs ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Конструктор теста</h3>
               <div className="flex items-center gap-2">
                 <a
                   href="/test_import_template.csv"
-                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border rounded-xl ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-orange-500' : 'border-slate-200'}`}
                   download
                 >
                   CSV шаблон
@@ -1352,13 +1596,13 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border rounded-xl ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-orange-500' : 'border-slate-200'}`}
                 >
                   Импорт тестов
                 </button>
                 <button
                   onClick={exportExam}
-                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border rounded-xl ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-orange-500' : 'border-slate-200'}`}
                 >
                   Экспорт теста
                 </button>
@@ -1369,7 +1613,7 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                 value={examMeta.title}
                 onChange={(e) => setExamMeta({ ...examMeta, title: e.target.value })}
                 placeholder="Название теста"
-                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                className={`px-4 py-3 rounded-xl border text-sm font-semibold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-200 bg-slate-50'}`}
               />
               <input
                 type="number"
@@ -1377,20 +1621,20 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                 value={examMeta.duration}
                 onChange={(e) => setExamMeta({ ...examMeta, duration: Number(e.target.value) })}
                 placeholder="Длительность"
-                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                className={`px-4 py-3 rounded-xl border text-sm font-semibold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-200 bg-slate-50'}`}
               />
               <input
                 value={examMeta.description}
                 onChange={(e) => setExamMeta({ ...examMeta, description: e.target.value })}
                 placeholder="Описание"
-                className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                className={`px-4 py-3 rounded-xl border text-sm font-semibold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-200 bg-slate-50'}`}
               />
             </div>
             <div className="space-y-4">
               {builderQuestions.map((q: any, idx: number) => (
-                <div key={idx} className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                <div key={idx} className={`border rounded-2xl p-4 space-y-3 ${theme === 'dark' ? 'border-slate-600' : 'border-slate-100'}`}>
                   <div className="flex justify-between items-center">
-                    <p className="text-xs font-black uppercase tracking-widest">Вопрос {idx + 1}</p>
+                    <p className={`text-xs font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : ''}`}>Вопрос {idx + 1}</p>
                     {builderQuestions.length > 1 && (
                       <button onClick={() => removeBuilderQuestion(idx)} className="text-red-500 text-xs font-bold">
                         Удалить
@@ -1401,13 +1645,13 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                     value={q.text}
                     onChange={(e) => updateBuilderQuestion(idx, 'text', e.target.value)}
                     placeholder="Текст вопроса"
-                    className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                    className={`w-full p-4 rounded-xl border text-sm font-semibold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-200 bg-slate-50'}`}
                   />
                   <div className="flex items-center gap-4">
                     <select
                       value={q.answerType}
                       onChange={(e) => updateBuilderQuestion(idx, 'answerType', e.target.value)}
-                      className="px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-widest"
+                      className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-200 bg-slate-50'}`}
                     >
                       <option value="single">Один ответ</option>
                       <option value="multiple">Несколько ответов</option>
@@ -1417,12 +1661,12 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                       min={1}
                       value={q.points || 1}
                       onChange={(e) => updateBuilderQuestion(idx, 'points', Number(e.target.value))}
-                      className="w-24 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold"
+                      className={`w-24 px-3 py-2 rounded-xl border text-sm font-bold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-200 bg-slate-50'}`}
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(q.options || []).map((opt: string, oIndex: number) => (
-                      <label key={oIndex} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                      <label key={oIndex} className={`flex items-center gap-3 border rounded-xl px-3 py-2 ${theme === 'dark' ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-100'}`}>
                         <input
                           type={q.answerType === 'multiple' ? 'checkbox' : 'radio'}
                           name={`builder-${idx}`}
@@ -1434,7 +1678,7 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
                           value={opt}
                           onChange={(e) => updateBuilderOption(idx, oIndex, e.target.value)}
                           placeholder={`Вариант ${oIndex + 1}`}
-                          className="flex-1 bg-transparent outline-none text-sm font-semibold"
+                          className={`flex-1 bg-transparent outline-none text-sm font-semibold ${theme === 'dark' ? 'text-white placeholder-slate-500' : ''}`}
                         />
                       </label>
                     ))}
@@ -1449,21 +1693,21 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
               ))}
             </div>
             <div className="flex justify-between items-center">
-              <button onClick={addBuilderQuestion} className="px-4 py-2 text-xs font-black uppercase tracking-widest">
+              <button onClick={addBuilderQuestion} className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : ''}`}>
                 + Вопрос
               </button>
-              <button onClick={createExam} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px]">
+              <button onClick={createExam} className={`px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] ${theme === 'dark' ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-slate-900 text-white'}`}>
                 Создать тест
               </button>
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left">
+          <div className={`p-8 rounded-[2rem] border shadow-sm space-y-6 text-left ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Загруженные тесты</h3>
+              <h3 className={`font-black uppercase tracking-widest text-xs ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Загруженные тесты</h3>
               <button
                 onClick={refreshExams}
-                className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border rounded-xl ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-orange-500' : 'border-slate-200'}`}
               >
                 Обновить
               </button>
@@ -1474,14 +1718,14 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
             )}
             <div className="grid grid-cols-1 gap-3">
               {loadedExams.map((exam: any) => (
-                <div key={exam.id} className="border border-slate-100 rounded-2xl p-4 flex justify-between items-start">
+                <div key={exam.id} className={`border rounded-2xl p-4 flex justify-between items-start ${theme === 'dark' ? 'border-slate-600' : 'border-slate-100'}`}>
                   <div className="space-y-1">
-                    <p className="text-sm font-black text-slate-800 tracking-tight">{exam.title}</p>
+                    <p className={`text-sm font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{exam.title}</p>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                       {exam.duration_minutes} мин • {exam.questions?.length || 0} вопросов
                     </p>
                     {exam.description && (
-                      <p className="text-xs text-slate-500 font-semibold">{exam.description}</p>
+                      <p className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{exam.description}</p>
                     )}
                   </div>
                   <button
@@ -1523,7 +1767,7 @@ function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
   );
 }
 
-function TestAssignmentView({ students, notify, onLogout }: any) {
+function TestAssignmentView({ students, notify, onLogout, lang, theme, onLangChange, onThemeChange }: any) {
   const [selectedGroup, setSelectedGroup] = useState('Все');
   const [timeLimit, setTimeLimit] = useState(60);
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
@@ -1641,7 +1885,7 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
     if (!editingAssignment) return;
     try {
       await api.updateAssignment(editingAssignment.id, {
-        due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
+        due_date: editDueDate ? new Date(editDueDate).toISOString() : undefined,
       });
       notify('Назначение обновлено');
       setEditingAssignment(null);
@@ -1662,27 +1906,56 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Назначение тестов</h2>
-        <ProfileMenu notify={notify} onLogout={onLogout} />
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50/30'}`}>
+      <header className={`px-8 py-5 border-b flex justify-between items-center sticky top-0 z-40 ${theme === 'dark' ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+        <h2 className={`text-2xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Назначение тестов</h2>
+        <div className="flex items-center gap-4">
+          {/* Language Selector */}
+          <div className="relative group">
+            <button className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}>
+              <Languages className="w-5 h-5" />
+              <span className="text-[10px] font-black uppercase">{lang}</span>
+            </button>
+            <div className={`absolute right-0 mt-2 w-32 border rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-[100] overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {(['ru', 'kk', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onLangChange(l)}
+                  className={`w-full px-4 py-3 text-[10px] font-black uppercase text-left transition-all ${
+                    lang === l ? 'text-orange-500' : 'text-slate-400'
+                  } ${theme === 'dark' ? 'hover:bg-orange-500/10 hover:text-orange-500' : 'hover:bg-orange-50 hover:text-orange-500'}`}
+                >
+                  {l === 'ru' ? 'Русский' : l === 'kk' ? 'Қазақша' : 'English'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Theme Toggle */}
+          <button
+            onClick={onThemeChange}
+            className={`p-2.5 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:text-orange-500' : 'bg-slate-50 text-slate-400 hover:text-orange-500'}`}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          <ProfileMenu notify={notify} onLogout={onLogout} theme={theme} />
+        </div>
       </header>
 
        <div className="flex-1 overflow-y-auto p-8">
          <div className="max-w-6xl mx-auto space-y-8">
             <div className="flex justify-between items-end">
                <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Параметры сессии</p>
-               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+               <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border shadow-sm ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Фильтр группы:</span>
-                  <select className="text-xs font-black border-none bg-transparent focus:ring-0 cursor-pointer" value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}>
+                  <select className={`text-xs font-black border-none bg-transparent focus:ring-0 cursor-pointer ${theme === 'dark' ? 'text-white' : ''}`} value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}>
                      {groups.map((g: string) => <option key={g} value={g}>{g}</option>)}
                   </select>
                </div>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-               <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
-                  <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-slate-800 mb-8 border-b border-slate-50 pb-4">
+               <div className={`rounded-[2rem] border p-8 shadow-sm flex flex-col ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <h3 className={`font-black text-sm uppercase tracking-widest flex items-center gap-3 mb-8 border-b pb-4 ${theme === 'dark' ? 'text-white border-slate-700' : 'text-slate-800 border-slate-50'}`}>
                     <CheckSquare className="w-5 h-5 text-orange-500"/> Список студентов ({filtered.length})
                   </h3>
                     <div className="flex items-center justify-between mb-3">
@@ -1706,7 +1979,7 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                   </div>
                   <div className="space-y-2 max-h-[460px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-slate-100">
                      {filtered.map((s: any) => (
-                       <div key={s.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                       <div key={s.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-colors ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50'}`}>
                           <input
                             type="checkbox"
                             className="w-5 h-5 rounded-lg border-slate-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
@@ -1714,10 +1987,10 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                             onChange={() => toggleStudent(Number(s.id))}
                           />
                           <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-sm text-slate-800 truncate">{s.full_name || s.name || 'Student'}</span>
+                            <span className={`font-bold text-sm truncate ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{s.full_name || s.name || 'Student'}</span>
                             <div className="flex gap-2 items-center">
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{s.id}</span>
-                              <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                              <span className={`w-1 h-1 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-200'}`}></span>
                               <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{s.group}</span>
                             </div>
                           </div>
@@ -1727,17 +2000,17 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                </div>
 
                <div className="space-y-6">
-                 <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm space-y-8 relative overflow-hidden">
-                    <div className="absolute -top-10 -right-10 opacity-5">
+                 <div className={`rounded-[2rem] border p-8 shadow-sm space-y-8 relative overflow-hidden ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                    <div className={`absolute -top-10 -right-10 opacity-5 ${theme === 'dark' ? 'text-slate-400' : ''}`}>
                       <Settings className="w-40 h-40" />
                     </div>
-                    <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-slate-800 relative"><Settings className="w-5 h-5 text-orange-500"/> Настройки экзамена</h3>
+                    <h3 className={`font-black text-sm uppercase tracking-widest flex items-center gap-3 relative ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}><Settings className="w-5 h-5 text-orange-500"/> Настройки экзамена</h3>
                     
                     <div className="space-y-8 relative">
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Выберите тест</label>
                         <select
-                          className="w-full p-4 rounded-2xl text-sm font-bold bg-slate-50 border border-slate-100 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
+                          className={`w-full p-4 rounded-2xl text-sm font-bold border outline-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-100'}`}
                           value={selectedExamId}
                           onChange={(e) => setSelectedExamId(e.target.value)}
                           disabled={loadingExams}
@@ -1759,14 +2032,14 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                             type="range" min="5" max="180" step="5"
                             value={timeLimit}
                             onChange={(e) => setTimeLimit(parseInt(e.target.value))}
-                            className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-orange-500 shadow-inner"
+                            className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-orange-500 shadow-inner ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-100'}`}
                           />
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                      <div className={`pt-6 border-t flex items-center justify-between ${theme === 'dark' ? 'border-slate-700' : 'border-slate-50'}`}>
                         <div className="space-y-1">
-                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                          <p className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                             <Monitor className="w-4 h-4 text-orange-500" /> Режим прокторинга
                           </p>
                           <p className="text-[10px] text-slate-400 font-bold">Активный AI-мониторинг поведения</p>
@@ -1783,19 +2056,19 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
 
                   <button 
                     onClick={startSession} 
-                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-[0.25em] text-[10px] shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                    className={`w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.25em] text-[10px] shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${theme === 'dark' ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-200'}`}
                  >
                    <Send className="w-4 h-4" /> Начать экзаменационную сессию
                  </button>
                </div>
             </div>
 
-              <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+              <div className={`rounded-[2rem] border p-8 shadow-sm ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-black text-sm uppercase tracking-widest text-slate-800">Назначенные тесты</h3>
+                  <h3 className={`font-black text-sm uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Назначенные тесты</h3>
                   <button
                     onClick={refreshAssignments}
-                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-slate-200 rounded-xl"
+                    className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border rounded-xl ${theme === 'dark' ? 'border-slate-600 text-slate-400 hover:text-orange-500' : 'border-slate-200'}`}
                   >
                     Обновить
                   </button>
@@ -1814,9 +2087,9 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                           <th className="pb-3 text-right">Действия</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className={`divide-y ${theme === 'dark' ? 'divide-slate-700' : 'divide-slate-100'}`}>
                         {assignments.map((a: any) => (
-                          <tr key={a.id} className="text-slate-700">
+                          <tr key={a.id} className={theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}>
                             <td className="py-3 font-bold">{a.exam_id}</td>
                             <td className="py-3">{a.student_email || a.student_id}</td>
                             <td className="py-3 uppercase text-[10px] font-black tracking-widest">
@@ -1858,10 +2131,10 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
        </div>
         {editingAssignment && (
           <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-6">
-            <div className="w-full max-w-md bg-white rounded-[2rem] border border-slate-200 shadow-2xl p-8">
+            <div className={`w-full max-w-md rounded-[2rem] border shadow-2xl p-8 ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-black text-slate-900">Редактировать назначение</h3>
-                <button onClick={() => setEditingAssignment(null)} className="p-2 text-slate-400 hover:text-slate-600">
+                <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Редактировать назначение</h3>
+                <button onClick={() => setEditingAssignment(null)} className={`p-2 ${theme === 'dark' ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1872,7 +2145,7 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
                     type="datetime-local"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                    className={`w-full px-4 py-3 rounded-xl border text-sm font-semibold ${theme === 'dark' ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`}
                   />
                 </div>
                 <p className="text-xs text-slate-400 font-bold">
@@ -1900,14 +2173,18 @@ function TestAssignmentView({ students, notify, onLogout }: any) {
   );
 }
 
-function NavButton({ active, onClick, icon, label }: any) {
+function NavButton({ active, onClick, icon, label, theme }: any) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all relative group ${
         active 
-          ? 'bg-orange-50 text-orange-600 shadow-sm border border-orange-100/50' 
-          : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
+          ? theme === 'dark' 
+            ? 'bg-orange-500/10 text-orange-400 shadow-sm border border-orange-500/20' 
+            : 'bg-orange-50 text-orange-600 shadow-sm border border-orange-100/50'
+          : theme === 'dark'
+            ? 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
+            : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
       }`}
     >
       <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>

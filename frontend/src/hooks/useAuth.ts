@@ -1,40 +1,54 @@
 // src/hooks/useAuth.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+
+export type UserRole = 'teacher' | 'student' | 'admin';
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'teacher' | 'student' | 'admin';
+  role: UserRole;
 }
 
+interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const USER_STORAGE_KEY = 'user';
+
+/**
+ * Hook for managing user authentication state.
+ * Persists user data to localStorage and provides login/logout functionality.
+ */
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    error: null,
+  });
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = async () => {
-      try {
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
-      } catch (err) {
-        setError('Failed to load user');
-      } finally {
-        setLoading(false);
+    try {
+      const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser) as User;
+        setState({ user: parsed, loading: false, error: null });
+      } else {
+        setState((prev) => ({ ...prev, loading: false }));
       }
-    };
-
-    checkAuth();
+    } catch {
+      localStorage.removeItem(USER_STORAGE_KEY);
+      setState({ user: null, loading: false, error: null });
+    }
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string, _role: 'teacher' | 'student') => {
-      setLoading(true);
-      setError(null);
+    async (email: string, password: string, _role: UserRole): Promise<User> => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+
       try {
         const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
@@ -43,8 +57,8 @@ export const useAuth = () => {
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || 'Login failed');
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.detail || 'Login failed');
         }
 
         const data = await response.json();
@@ -52,26 +66,41 @@ export const useAuth = () => {
           id: String(data.id),
           email: data.email,
           name: data.full_name || data.email?.split('@')[0] || 'User',
-          role: data.role,
+          role: data.role as UserRole,
         };
-        setUser(loggedUser);
-        localStorage.setItem('user', JSON.stringify(loggedUser));
+
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(loggedUser));
+        setState({ user: loggedUser, loading: false, error: null });
         return loggedUser;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Login failed';
-        setError(message);
+        setState((prev) => ({ ...prev, loading: false, error: message }));
         throw err;
-      } finally {
-        setLoading(false);
       }
     },
     []
   );
 
   const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem(USER_STORAGE_KEY);
+    setState({ user: null, loading: false, error: null });
   }, []);
 
-  return { user, loading, error, login, logout, isAuthenticated: !!user };
+  const clearError = useCallback(() => {
+    setState((prev) => ({ ...prev, error: null }));
+  }, []);
+
+  // Memoize return value to prevent unnecessary re-renders
+  return useMemo(
+    () => ({
+      user: state.user,
+      loading: state.loading,
+      error: state.error,
+      login,
+      logout,
+      clearError,
+      isAuthenticated: !!state.user,
+    }),
+    [state.user, state.loading, state.error, login, logout, clearError]
+  );
 };

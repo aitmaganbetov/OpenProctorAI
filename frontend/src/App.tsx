@@ -1,17 +1,17 @@
 // src/App.tsx
 import { useEffect, useState } from 'react';
+import { Suspense, lazy } from 'react';
 import { LoginPage } from './components/LoginPage';
-import { AdminPanel } from './components/admin/AdminPanel';
-import { TeacherDashboard } from './components/teacher/TeacherDashboard';
-import { StudentDashboard } from './components/student/StudentDashboard';
-import LanguageSwitcher from './components/ui/LanguageSwitcher';
-import ThemeToggle from './components/ui/ThemeToggle';
 import { useAuth } from './hooks/useAuth';
+
+const AdminPanel = lazy(() => import('./components/admin/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+const TeacherDashboard = lazy(() => import('./components/teacher/TeacherDashboard').then((m) => ({ default: m.TeacherDashboard })));
+const StudentDashboard = lazy(() => import('./components/student/StudentDashboard').then((m) => ({ default: m.StudentDashboard })));
 
 function App() {
   const { user, loading, isAuthenticated, login, logout } = useAuth();
-  const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [lang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
+  const [isDark] = useState(() => localStorage.getItem('theme') === 'dark');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -56,15 +56,20 @@ function App() {
 
   return (
     <>
-      {user?.role !== 'admin' && (
-        <div className="fixed bottom-4 left-4 z-[300] flex items-center gap-2">
-          <LanguageSwitcher lang={lang} setLang={(l) => setLang(l as 'ru' | 'en' | 'kk')} />
-          <ThemeToggle isDark={isDark} setIsDark={setIsDark} />
-        </div>
-      )}
-      {user?.role === 'admin' && <AdminPanel onLogout={logout} />}
-      {user?.role === 'teacher' && <TeacherDashboard onLogout={logout} />}
-      {user?.role === 'student' && <StudentDashboard onLogout={logout} />}
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-400">Loading...</p>
+            </div>
+          </div>
+        }
+      >
+        {user?.role === 'admin' && <AdminPanel onLogout={logout} />}
+        {user?.role === 'teacher' && <TeacherDashboard onLogout={logout} />}
+        {user?.role === 'student' && <StudentDashboard onLogout={logout} />}
+      </Suspense>
     </>
   );
 }

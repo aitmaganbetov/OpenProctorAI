@@ -442,12 +442,30 @@ def import_students(payload: Dict[str, Any] = Body(...), db: Session = Depends(g
 def get_all_exam_sessions(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     """Get all exam sessions for monitoring."""
     sessions = db.query(ExamSession).all()
+    if not sessions:
+        return []
+
+    session_ids = [s.id for s in sessions]
+    student_ids = list({s.student_id for s in sessions if s.student_id is not None})
+    exam_ids = list({s.exam_id for s in sessions if s.exam_id is not None})
+
+    students = {
+        u.id: u for u in db.query(User).filter(User.id.in_(student_ids)).all()
+    } if student_ids else {}
+    exams = {
+        e.id: e for e in db.query(Exam).filter(Exam.id.in_(exam_ids)).all()
+    } if exam_ids else {}
+
+    violations_by_session: Dict[int, List[Violation]] = {sid: [] for sid in session_ids}
+    for v in db.query(Violation).filter(Violation.session_id.in_(session_ids)).all():
+        violations_by_session.setdefault(v.session_id, []).append(v)
+
     results = []
     for session in sessions:
-        student = db.query(User).filter(User.id == session.student_id).first()
-        exam = db.query(Exam).filter(Exam.id == session.exam_id).first()
-        violations = db.query(Violation).filter(Violation.session_id == session.id).all()
-        
+        student = students.get(session.student_id)
+        exam = exams.get(session.exam_id)
+        violations = violations_by_session.get(session.id, [])
+
         results.append({
             "id": session.id,
             "exam_id": session.exam_id,
@@ -466,7 +484,9 @@ def get_all_exam_sessions(db: Session = Depends(get_db)) -> List[Dict[str, Any]]
                     "type": v.type,
                     "timestamp": v.timestamp.isoformat() if v.timestamp else None,
                     "severity_score": v.severity_score,
-                    "confidence": v.confidence
+                    "confidence": v.confidence,
+                    "video_proof_url": v.video_proof_url,
+                    "video_duration": v.video_duration
                 }
                 for v in violations
             ]
@@ -478,11 +498,25 @@ def get_all_exam_sessions(db: Session = Depends(get_db)) -> List[Dict[str, Any]]
 def get_student_sessions(student_id: int, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     """Get exam sessions for a specific student."""
     sessions = db.query(ExamSession).filter(ExamSession.student_id == student_id).all()
+    if not sessions:
+        return []
+
+    session_ids = [s.id for s in sessions]
+    exam_ids = list({s.exam_id for s in sessions if s.exam_id is not None})
+
+    exams = {
+        e.id: e for e in db.query(Exam).filter(Exam.id.in_(exam_ids)).all()
+    } if exam_ids else {}
+
+    violations_by_session: Dict[int, List[Violation]] = {sid: [] for sid in session_ids}
+    for v in db.query(Violation).filter(Violation.session_id.in_(session_ids)).all():
+        violations_by_session.setdefault(v.session_id, []).append(v)
+
     results = []
     for session in sessions:
-        exam = db.query(Exam).filter(Exam.id == session.exam_id).first()
-        violations = db.query(Violation).filter(Violation.session_id == session.id).all()
-        
+        exam = exams.get(session.exam_id)
+        violations = violations_by_session.get(session.id, [])
+
         results.append({
             "id": session.id,
             "exam_id": session.exam_id,
@@ -498,7 +532,9 @@ def get_student_sessions(student_id: int, db: Session = Depends(get_db)) -> List
                     "type": v.type,
                     "timestamp": v.timestamp.isoformat() if v.timestamp else None,
                     "severity_score": v.severity_score,
-                    "confidence": v.confidence
+                    "confidence": v.confidence,
+                    "video_proof_url": v.video_proof_url,
+                    "video_duration": v.video_duration
                 }
                 for v in violations
             ]

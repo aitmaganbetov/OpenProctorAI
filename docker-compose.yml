@@ -10,6 +10,13 @@ services:
       MYSQL_DATABASE: proctoring_db
       MYSQL_USER: proctor_user
       MYSQL_PASSWORD: proctor_password
+      TZ: Asia/Almaty
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     ports:
       - "3306:3306"
     volumes:
@@ -19,6 +26,8 @@ services:
 
   redis:
     image: redis:alpine
+    environment:
+      TZ: Asia/Almaty
     networks:
       - proctor_net
 
@@ -29,6 +38,8 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+      TZ: Asia/Almaty
     ports:
       - "9000:9000" # API
       - "9001:9001" # Console UI
@@ -42,6 +53,8 @@ services:
     image: minio/mc
     depends_on:
       - minio
+    environment:
+      TZ: Asia/Almaty
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
@@ -63,14 +76,20 @@ services:
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: exam-recordings
+      MINIO_PUBLIC_URL: http://localhost:9000
       REDIS_URL: redis://redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TZ: Asia/Almaty
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - minio
-      - redis
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - proctor_net
 
@@ -86,6 +105,7 @@ services:
     environment:
       REACT_APP_API_URL: http://backend:8000
       API_URL: http://backend:8000
+      TZ: Asia/Almaty
     networks:
       - proctor_net
 

@@ -1,18 +1,62 @@
 # app/api/endpoints/proctoring.py
-from fastapi import APIRouter, Depends, Form, HTTPException, Body, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Form, HTTPException, Body, Request, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.models import Violation, ExamSession, StudentProfile, User, Exam
+from app.core.config import settings
 from typing import Dict, Any, Set
 from datetime import datetime
 import base64
 import cv2
 import numpy as np
 import face_recognition
+from minio import Minio
+from minio.error import S3Error
+from uuid import uuid4
+import io
+import tempfile
+import subprocess
 
 router = APIRouter(prefix="/proctoring", tags=["proctoring"])
 
+def get_video_duration(video_bytes: bytes) -> float:
+    """Get video duration using ffprobe"""
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.webm', delete=True) as tmp:
+            tmp.write(video_bytes)
+            tmp.flush()
+            result = subprocess.run(
+                ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', tmp.name],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return float(result.stdout.strip())
+    except Exception as e:
+        print(f"Error getting video duration: {e}")
+    return None
+
 rooms: Dict[str, Set[WebSocket]] = {}
+
+def get_minio_client() -> Minio:
+    return Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_SECURE,
+    )
+
+def ensure_bucket(client: Minio, bucket: str) -> None:
+    found = client.bucket_exists(bucket)
+    if not found:
+        client.make_bucket(bucket)
+
+def build_public_url(object_name: str) -> str:
+    if settings.MINIO_PUBLIC_URL:
+        return f"{settings.MINIO_PUBLIC_URL.rstrip('/')}/{settings.MINIO_BUCKET}/{object_name}"
+    scheme = "https" if settings.MINIO_SECURE else "http"
+    return f"{scheme}://{settings.MINIO_ENDPOINT}/{settings.MINIO_BUCKET}/{object_name}"
 
 @router.websocket("/ws/stream/{room_id}")
 async def stream_signaling(websocket: WebSocket, room_id: str):
@@ -58,31 +102,7 @@ async def report_violation(
         student_id = None
         exam_id = None
 
-    if session_id in ("", 0, "0"):
-        session_id = None
-
-    if isinstance(session_id, str) and session_id.isdigit():
-        session_id = int(session_id)
-
-    if session_id is None and student_id is not None:
-        session = (
-            db.query(ExamSession)
-            .filter(ExamSession.student_id == student_id)
-            .order_by(ExamSession.start_time.desc())
-            .first()
-        )
-        if not session:
-            exam = None
-            if exam_id is not None:
-                exam = db.query(Exam).filter(Exam.id == exam_id).first()
-            if not exam:
-                exam = db.query(Exam).first()
-            session = ExamSession(exam_id=exam.id if exam else None, student_id=student_id, status="active")
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-        if session:
-            session_id = session.id
+    session_id = resolve_session_id(db, session_id, student_id, exam_id)
 
     if session_id is None or violation_type is None or timestamp is None or confidence is None:
         raise HTTPException(status_code=400, detail="Missing required fields")
@@ -101,6 +121,60 @@ async def report_violation(
     db.refresh(violation)
 
     return {"status": "received", "violation_id": violation.id}
+
+
+@router.post("/report-violation-evidence")
+async def report_violation_evidence(
+    file: UploadFile = File(...),
+    session_id: int = Form(None),
+    student_id: int = Form(None),
+    exam_id: int = Form(None),
+    violation_type: str = Form(None),
+    timestamp: str = Form(None),
+    confidence: float = Form(None),
+    db: Session = Depends(get_db),
+):
+    session_id = resolve_session_id(db, session_id, student_id, exam_id)
+    if session_id is None or violation_type is None or timestamp is None or confidence is None:
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    session = db.query(ExamSession).filter(ExamSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=403, detail="Invalid session")
+
+    client = get_minio_client()
+    try:
+        ensure_bucket(client, settings.MINIO_BUCKET)
+    except S3Error:
+        raise HTTPException(status_code=500, detail="MinIO bucket error")
+
+    contents = await file.read()
+    
+    # Get video duration
+    video_duration = get_video_duration(contents)
+    
+    object_name = f"violations/{session_id}/{uuid4().hex}.webm"
+    client.put_object(
+        settings.MINIO_BUCKET,
+        object_name,
+        io.BytesIO(contents),
+        length=len(contents),
+        content_type=file.content_type or "video/webm",
+    )
+    public_url = build_public_url(object_name)
+
+    violation = Violation(
+        session_id=session.id,
+        type=violation_type,
+        confidence=confidence,
+        severity_score=calculate_severity(violation_type),
+        video_proof_url=public_url,
+        video_duration=video_duration,
+    )
+    db.add(violation)
+    db.commit()
+    db.refresh(violation)
+
+    return {"status": "received", "violation_id": violation.id, "video_url": public_url, "video_duration": video_duration}
 
 @router.post("/student/{student_id}/photo")
 def upload_student_photo(
@@ -274,9 +348,45 @@ def calculate_severity(v_type: str) -> int:
         "tab_switch": 2,
         "voice_detected": 3,
         "face_missing": 4,
-        "multiple_faces": 5
+        "multiple_faces": 5,
+        "face_substitution": 5,
+        "phone_detected": 4,
+        "book_detected": 3,
+        "laptop_detected": 3,
     }
     return mapping.get(v_type, 1)
+
+def resolve_session_id(
+    db: Session,
+    session_id: Any,
+    student_id: Any,
+    exam_id: Any,
+) -> int:
+    if session_id in ("", 0, "0"):
+        session_id = None
+    if isinstance(session_id, str) and session_id.isdigit():
+        session_id = int(session_id)
+
+    if session_id is None and student_id is not None:
+        session = (
+            db.query(ExamSession)
+            .filter(ExamSession.student_id == student_id)
+            .order_by(ExamSession.start_time.desc())
+            .first()
+        )
+        if not session:
+            exam = None
+            if exam_id is not None:
+                exam = db.query(Exam).filter(Exam.id == exam_id).first()
+            if not exam:
+                exam = db.query(Exam).first()
+            session = ExamSession(exam_id=exam.id if exam else None, student_id=student_id, status="active")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+        if session:
+            session_id = session.id
+    return session_id
 
 def base64_to_image(base64_str: str) -> np.ndarray:
     """Convert base64 encoded image to numpy array."""
@@ -297,3 +407,43 @@ def base64_to_image(base64_str: str) -> np.ndarray:
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     
     return image
+
+@router.get("/video-proxy")
+async def video_proxy(url: str):
+    """Proxy video requests to MinIO with CORS headers"""
+    import httpx
+    
+    # Validate that URL is from our MinIO
+    allowed_hosts = [
+        "http://localhost:9000",
+        "http://127.0.0.1:9000",
+        "http://minio:9000",
+        f"http://{settings.MINIO_ENDPOINT}",
+    ]
+    if not any(url.startswith(h) for h in allowed_hosts):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    
+    # Convert localhost URL to internal minio URL for Docker network
+    internal_url = url.replace("http://localhost:9000", "http://minio:9000")
+    internal_url = internal_url.replace("http://127.0.0.1:9000", "http://minio:9000")
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(internal_url, timeout=30.0)
+            
+            headers = {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Content-Type": response.headers.get("Content-Type", "video/webm"),
+                "Content-Length": response.headers.get("Content-Length", "0"),
+                "Accept-Ranges": "bytes",
+            }
+            
+            return StreamingResponse(
+                iter([response.content]),
+                headers=headers,
+                media_type=response.headers.get("Content-Type", "video/webm")
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error proxying video: {str(e)}")

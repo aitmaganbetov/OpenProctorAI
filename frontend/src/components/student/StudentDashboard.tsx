@@ -30,6 +30,8 @@ import {
   X,
 } from 'lucide-react';
 import api from '../../services/api';
+import LanguageSwitcher from '../ui/LanguageSwitcher';
+import ThemeToggle from '../ui/ThemeToggle';
 
 interface StudentDashboardProps {
   onLogout?: () => void;
@@ -65,7 +67,7 @@ const Modal = ({ isOpen, onClose, title, children, footer }: any) => {
   );
 };
 
-const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any) => {
+const FloatingCamera = ({ warning, message, stream, cameraError, onRetry, noiseStatus }: any) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -217,6 +219,15 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
           </div>
         )}
 
+        {!isMinimized && (
+          <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-1.5 rounded-full border border-white/10">
+            <div className={`w-2 h-2 rounded-full ${noiseStatus === 'noisy' ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <span className="text-[9px] font-black uppercase tracking-widest text-white">
+              {noiseStatus === 'noisy' ? 'ШУМНО' : 'ТИХО'}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={() => setIsMinimized(!isMinimized)}
           className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
@@ -228,7 +239,7 @@ const FloatingCamera = ({ warning, message, stream, cameraError, onRetry }: any)
   );
 };
 
-const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProfileRefresh, lang }: any) => {
+const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProfileRefresh, lang, setLang, isDark, setIsDark }: any) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [hasProfilePhoto, setHasProfilePhoto] = useState(false);
@@ -375,10 +386,17 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 select-none">
-      <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-6 select-none">
+      <div className="max-w-7xl w-full">
+        <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher lang={lang} setLang={setLang} isDark={isDark} />
+            <ThemeToggle isDark={isDark} setIsDark={setIsDark} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 border border-slate-100 text-center relative overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 border border-slate-100 dark:border-slate-700 text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-orange-400" />
             <div className="relative inline-block mb-6 mt-4">
               <div className="w-32 h-32 rounded-full bg-slate-50 border-4 border-white shadow-md mx-auto overflow-hidden flex items-center justify-center ring-1 ring-slate-100">
@@ -395,10 +413,10 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
               )}
             </div>
 
-            <h2 className="text-xl font-black text-slate-900 mb-1 tracking-tight">
+            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-1 tracking-tight">
               {profileData?.full_name || '—'}
             </h2>
-            <p className="text-slate-400 font-black text-[9px] uppercase mb-8 tracking-[0.15em]">
+            <p className="text-slate-400 dark:text-slate-400 font-black text-[9px] uppercase mb-8 tracking-[0.15em]">
               ID: {studentId ?? '—'} • {profileData?.is_active ? 'OpenProctorAI Verified' : 'Не активен'}
             </p>
 
@@ -421,7 +439,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                 </button>
               ))}
 
-              <div className="my-4 border-t border-slate-50 mx-2" />
+              <div className="my-4 border-t border-slate-50 dark:border-slate-700 mx-2" />
 
               <button
                 onClick={() => {
@@ -440,8 +458,8 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
         <div className="lg:col-span-8 space-y-6">
           {activeTab === 'dashboard' && (
             <>
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/40 border border-slate-100">
-                <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-3 uppercase tracking-tight">
+              <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/40 border border-slate-100 dark:border-slate-700">
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-8 flex items-center gap-3 uppercase tracking-tight">
                   <ShieldCheck className="text-orange-500" size={28} />
                   Статус оборудования
                 </h3>
@@ -456,14 +474,14 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                           ? 'text-rose-500 border-rose-50'
                           : 'text-amber-500 border-amber-50';
                     return (
-                      <div key={i} className="flex items-center justify-between p-5 rounded-3xl border border-slate-50 bg-slate-50/50">
+                      <div key={i} className="flex items-center justify-between p-5 rounded-3xl border border-slate-50 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40">
                         <div className="flex items-center gap-4">
-                          <div className={`w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100 ${item.color}`}>
+                          <div className={`w-11 h-11 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 ${item.color}`}>
                             <item.icon size={20} />
                           </div>
-                          <span className="font-black text-[10px] uppercase tracking-wider text-slate-600">{item.label}</span>
+                          <span className="font-black text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-300">{item.label}</span>
                         </div>
-                        <div className={`flex items-center gap-2 font-black text-[9px] bg-white px-3 py-1.5 rounded-full shadow-sm uppercase tracking-widest ${statusClass}`}>
+                        <div className={`flex items-center gap-2 font-black text-[9px] bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full shadow-sm uppercase tracking-widest ${statusClass}`}>
                           <CheckCircle size={12} strokeWidth={3} />
                           {statusLabel}
                         </div>
@@ -474,18 +492,18 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                 <div className="flex justify-end">
                   <button
                     onClick={runEquipmentCheck}
-                    className="mt-6 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                    className="mt-6 px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
                   >
                     Проверить оборудование
                   </button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/40 border border-slate-100 relative overflow-hidden">
+              <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/40 border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                 <div className="absolute -top-12 -right-12 opacity-5 pointer-events-none">
                   <OpenProctorLogo className="w-56 h-56" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3 uppercase tracking-tight relative">
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3 uppercase tracking-tight relative">
                   <FileText className="text-orange-500" size={28} />
                   Регламент OpenProctorAI
                 </h3>
@@ -500,7 +518,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                       <div className="shrink-0 w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-black group-hover:bg-orange-500 transition-colors">
                         0{i + 1}
                       </div>
-                      <p className="text-slate-600 font-bold text-sm leading-relaxed pt-1">{text}</p>
+                      <p className="text-slate-600 dark:text-slate-300 font-bold text-sm leading-relaxed pt-1">{text}</p>
                     </div>
                   ))}
                 </div>
@@ -518,9 +536,9 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
 
           {activeTab === 'exams' && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
+              <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-10 shadow-xl border border-slate-100 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
+                  <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight flex items-center gap-3">
                     <BookOpen size={24} className="text-orange-500" />
                     Доступные экзамены
                   </h3>
@@ -529,7 +547,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                     <input
                       type="text"
                       placeholder="Поиск..."
-                      className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold focus:bg-white outline-none transition-all w-48"
+                      className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10px] font-bold focus:bg-white dark:focus:bg-slate-800 outline-none transition-all w-48 text-slate-700 dark:text-slate-200"
                     />
                   </div>
                 </div>
@@ -538,24 +556,24 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                   {availableExams.map((exam) => (
                     <div
                       key={exam.id}
-                      className="p-6 bg-slate-50/50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-orange-200 transition-all hover:bg-white"
+                      className="p-6 bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-3xl flex items-center justify-between group hover:border-orange-200 transition-all hover:bg-white dark:hover:bg-slate-800"
                     >
                       <div className="flex items-center gap-5">
                         <div
                           className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${
-                            exam.status === 'Доступен' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'
+                            exam.status === 'Доступен' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
                           }`}
                         >
                           <Terminal size={24} />
                         </div>
                         <div>
-                          <h4 className="font-black text-slate-800 text-sm tracking-tight mb-1">{exam.title}</h4>
+                          <h4 className="font-black text-slate-800 dark:text-slate-100 text-sm tracking-tight mb-1">{exam.title}</h4>
                           <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 flex items-center gap-1">
                               <Calendar size={12} /> {exam.date}
                             </span>
-                            <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                            <span className="w-1 h-1 bg-slate-200 dark:bg-slate-600 rounded-full" />
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 flex items-center gap-1">
                               <Clock size={12} /> {exam.duration}
                             </span>
                           </div>
@@ -567,7 +585,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                         className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                           exam.status === 'Доступен'
                             ? 'bg-slate-900 text-white hover:bg-orange-500 shadow-lg active:scale-95'
-                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
                         }`}
                       >
                         {loading && exam.status === 'Доступен' ? (
@@ -584,58 +602,58 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
           )}
 
           {activeTab === 'results' && (
-            <div className="bg-white rounded-[2.5rem] p-12 shadow-xl border border-slate-100 flex flex-col items-center justify-center text-center min-h-[400px]">
-              <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center text-indigo-500 mb-6">
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center min-h-[400px]">
+              <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 rounded-3xl flex items-center justify-center text-indigo-500 mb-6">
                 <BarChart3 size={40} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Ваши результаты</h3>
-              <p className="text-slate-400 text-sm font-medium">Здесь будут отображаться итоги пройденных тестов после их проверки системой.</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight mb-2">Ваши результаты</h3>
+              <p className="text-slate-400 dark:text-slate-300 text-sm font-medium">Здесь будут отображаться итоги пройденных тестов после их проверки системой.</p>
             </div>
           )}
 
           {activeTab === 'appeals' && (
-            <div className="bg-white rounded-[2.5rem] p-12 shadow-xl border border-slate-100 flex flex-col items-center justify-center text-center min-h-[400px]">
-              <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-500 mb-6">
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center min-h-[400px]">
+              <div className="w-20 h-20 bg-orange-50 dark:bg-orange-500/10 rounded-3xl flex items-center justify-center text-orange-500 mb-6">
                 <MessageSquare size={40} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Апелляция</h3>
-              <p className="text-slate-400 text-sm font-medium mb-8">
+              <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight mb-2">Апелляция</h3>
+              <p className="text-slate-400 dark:text-slate-300 text-sm font-medium mb-8">
                 В данном разделе вы можете подать заявку на пересмотр результатов экзамена или логов прокторинга.
               </p>
-              <button className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 transition-all shadow-xl active:scale-95">
+              <button className="px-8 py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 transition-all shadow-xl active:scale-95">
                 Подать заявку
               </button>
             </div>
           )}
 
           {activeTab === 'profile' && (
-            <div className="bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
-              <h3 className="text-xl font-black text-slate-900 mb-8 uppercase tracking-tight">Персональные данные</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-10 shadow-xl border border-slate-100 dark:border-slate-700">
+              <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-8 uppercase tracking-tight">Персональные данные</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="p-5 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">ФИО</p>
-                  <p className="text-sm font-bold text-slate-700">{profileData?.full_name || '—'}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{profileData?.full_name || '—'}</p>
                 </div>
-                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="p-5 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Почта</p>
-                  <p className="text-sm font-bold text-slate-700">{profileData?.email || '—'}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{profileData?.email || '—'}</p>
                 </div>
-                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="p-5 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Группа</p>
-                  <p className="text-sm font-bold text-slate-700">{profileData?.group || '—'}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{profileData?.group || '—'}</p>
                 </div>
-                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="p-5 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Статус</p>
                   <p className={`text-sm font-bold ${profileData?.is_active ? 'text-green-600' : 'text-rose-500'}`}>
                     {profileData?.is_active ? 'Верифицирован' : 'Не активен'}
                   </p>
                 </div>
               </div>
-              <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Фото профиля</p>
-                    <p className="text-sm font-bold text-slate-700">
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
                       {hasProfilePhoto ? 'Загружено' : 'Не загружено'}
                     </p>
                   </div>
@@ -652,8 +670,8 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
                       disabled={hasProfilePhoto || photoLoading}
                       className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                         hasProfilePhoto
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800'
                       }`}
                     >
                       {photoLoading ? 'Загрузка...' : 'Добавить фото'}
@@ -669,6 +687,7 @@ const ProfileView = ({ onStart, notify, onLogout, studentId, profileData, onProf
             </div>
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -678,15 +697,15 @@ const QuestionCard = ({ question, index, selectedAnswer, onAnswer, isFlagged, on
   <div className="space-y-6">
     <div className="flex items-start justify-between gap-6">
       <div className="space-y-3">
-        <div className="inline-flex bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">
+        <div className="inline-flex bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm">
           <span className="text-orange-500 font-black text-[9px] tracking-widest uppercase">Вопрос 0{index + 1}</span>
         </div>
-        <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight tracking-tight">{question.text}</h2>
+        <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 leading-tight tracking-tight">{question.text}</h2>
       </div>
       <button
         onClick={() => onToggleFlag(index)}
         className={`p-4 rounded-2xl transition-all border-2 shrink-0 shadow-sm ${
-          isFlagged ? 'bg-orange-50 border-orange-200 text-orange-600 shadow-orange-100 scale-110' : 'bg-white border-slate-100 text-slate-200 hover:border-slate-200'
+          isFlagged ? 'bg-orange-50 border-orange-200 text-orange-600 shadow-orange-100 scale-110' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-200 hover:border-slate-200'
         }`}
       >
         <Flag size={24} fill={isFlagged ? 'currentColor' : 'none'} />
@@ -698,19 +717,23 @@ const QuestionCard = ({ question, index, selectedAnswer, onAnswer, isFlagged, on
         <label
           key={i}
           className={`group relative flex items-center p-6 cursor-pointer rounded-[2rem] border-2 transition-all duration-300 shadow-sm ${
-            selectedAnswer === i ? 'border-orange-500 bg-white shadow-orange-50' : 'border-white bg-white hover:border-slate-200'
+            selectedAnswer === i
+              ? 'border-orange-500 bg-white dark:bg-slate-800 shadow-orange-50'
+              : 'border-white dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-200'
           }`}
         >
           <input type="radio" name={`q-${index}`} checked={selectedAnswer === i} onChange={() => onAnswer(i)} className="sr-only" />
           <div className="flex items-center w-full gap-5">
             <div
               className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-300 shadow-inner ${
-                selectedAnswer === i ? 'border-orange-500 bg-orange-500' : 'border-slate-100 bg-slate-50 group-hover:border-slate-200'
+                selectedAnswer === i
+                  ? 'border-orange-500 bg-orange-500'
+                  : 'border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 group-hover:border-slate-200'
               }`}
             >
               <Check size={16} strokeWidth={4} className={`text-white transition-transform duration-300 ${selectedAnswer === i ? 'scale-100' : 'scale-0'}`} />
             </div>
-            <span className={`text-base font-bold transition-colors ${selectedAnswer === i ? 'text-slate-900' : 'text-slate-500'}`}>{option}</span>
+            <span className={`text-base font-bold transition-colors ${selectedAnswer === i ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-300'}`}>{option}</span>
           </div>
         </label>
       ))}
@@ -720,6 +743,7 @@ const QuestionCard = ({ question, index, selectedAnswer, onAnswer, isFlagged, on
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) => {
   const [lang, setLang] = useState<'ru' | 'en' | 'kk'>(() => (localStorage.getItem('lang') as any) || 'ru');
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
   const [view, setView] = useState<'profile' | 'verification' | 'exam'>('profile');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -730,6 +754,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [warning, setWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('Внимание: посмотрите в камеру!');
+  const [noiseLevel, setNoiseLevel] = useState<number>(0);
+  const [noiseStatus, setNoiseStatus] = useState<'quiet' | 'noisy'>('quiet');
   const [notifications, setNotifications] = useState<Array<{ id: number; msg: string }>>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [faceCheckLoading, setFaceCheckLoading] = useState(false);
@@ -752,6 +778,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const lastObjectCheckAtRef = useRef<number>(0);
   const lastObjectViolationAtRef = useRef<Record<string, number>>({});
   const objectModelRef = useRef<any>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const audioMonitorTimerRef = useRef<number | null>(null);
+  const lastNoiseAtRef = useRef<number>(0);
+  const examStartAtRef = useRef<number>(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const bufferRef = useRef<Array<{ blob: Blob; ts: number }>>([]);
+  const captureTailRef = useRef<{ active: boolean; chunks: Blob[] } | null>(null);
+  const evidenceInFlightRef = useRef(false);
   const pendingViolationsRef = useRef<Array<Record<string, any>>>([]);
   const streamPeersRef = useRef<Record<StreamKind, Map<string, RTCPeerConnection>>>(
     { camera: new Map(), screen: new Map() }
@@ -769,6 +805,85 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     photo_base64?: string;
     is_verified?: boolean;
   } | null>(null);
+
+  const effectiveStudentId = studentId ?? profileData?.id ?? null;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  const handleLangChange = useCallback((nextLang: 'ru' | 'en' | 'kk') => {
+    setLang(nextLang);
+    localStorage.setItem('lang', nextLang);
+    document.documentElement.lang = nextLang;
+    window.dispatchEvent(new Event('app:lang-change'));
+  }, []);
+
+  const captureViolation = useCallback(async (): Promise<Blob | null> => {
+    if (evidenceInFlightRef.current) return null;
+    evidenceInFlightRef.current = true;
+    try {
+      const preChunks = bufferRef.current.map((c) => c.blob);
+      captureTailRef.current = { active: true, chunks: [] };
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const tailChunks = captureTailRef.current?.chunks || [];
+      captureTailRef.current = null;
+      const all = [...preChunks, ...tailChunks];
+      if (all.length === 0) return null;
+      return new Blob(all, { type: 'video/webm' });
+    } finally {
+      evidenceInFlightRef.current = false;
+    }
+  }, []);
+
+  const logViolation = useCallback(
+    async (payload: Record<string, any>) => {
+      try {
+        if (view === 'exam' && cameraStream) {
+          const evidence = await captureViolation();
+          if (evidence) {
+            const form = new FormData();
+            form.append('file', evidence, `violation_${Date.now()}.webm`);
+            form.append('session_id', String(activeSessionId || payload.session_id || ''));
+            if (payload.student_id) form.append('student_id', String(payload.student_id));
+            if (payload.exam_id) form.append('exam_id', String(payload.exam_id));
+            form.append('violation_type', String(payload.violation_type || 'object_detected'));
+            form.append('timestamp', String(payload.timestamp || new Date().toISOString()));
+            form.append('confidence', String(payload.confidence ?? 0.6));
+            await api.reportViolationEvidence(form);
+            return;
+          }
+        }
+        await api.reportViolation(activeSessionId || undefined, payload);
+      } catch {
+        pendingViolationsRef.current.push(payload);
+      }
+    },
+    [activeSessionId, cameraStream, captureViolation, view]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (pendingViolationsRef.current.length === 0) return;
+      const queue = [...pendingViolationsRef.current];
+      pendingViolationsRef.current = [];
+      for (const payload of queue) {
+        try {
+          await api.reportViolation(activeSessionId || undefined, payload);
+        } catch {
+          pendingViolationsRef.current.push(payload);
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeSessionId]);
 
   const notify = (msg: string) => {
     const id = Date.now();
@@ -808,6 +923,72 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     }
   }, [notify, stopScreenShare]);
 
+  const stopAudioMonitor = useCallback(() => {
+    if (audioMonitorTimerRef.current) {
+      window.clearInterval(audioMonitorTimerRef.current);
+      audioMonitorTimerRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    audioAnalyserRef.current = null;
+  }, []);
+
+  const startAudioMonitor = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      audioStreamRef.current = stream;
+      const context = new AudioContext();
+      audioContextRef.current = context;
+      const source = context.createMediaStreamSource(stream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      audioAnalyserRef.current = analyser;
+
+      const data = new Uint8Array(analyser.fftSize);
+      audioMonitorTimerRef.current = window.setInterval(async () => {
+        const node = audioAnalyserRef.current;
+        if (!node) return;
+        node.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 1) {
+          const v = (data[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        setNoiseLevel(rms);
+        const isNoisy = rms > 0.055;
+        setNoiseStatus(isNoisy ? 'noisy' : 'quiet');
+        if (isNoisy) {
+          const now = Date.now();
+          if (now - lastNoiseAtRef.current > 8000) {
+            lastNoiseAtRef.current = now;
+            setWarning(true);
+            setWarningMessage('Обнаружен посторонний шум');
+            if (effectiveStudentId) {
+              void logViolation({
+                violation_type: 'voice_detected',
+                timestamp: new Date().toISOString(),
+                confidence: 0.6,
+                student_id: effectiveStudentId,
+                exam_id: activeExamId,
+              });
+            }
+          }
+        }
+      }, 700);
+    } catch {
+      // ignore mic permission errors
+    }
+  }, [activeExamId, effectiveStudentId, logViolation]);
+
   const sendStreamOffer = useCallback(async (kind: StreamKind, viewerId: string, selfId: string) => {
     const pc = streamPeersRef.current[kind].get(viewerId);
     const socket = streamSocketRef.current[kind];
@@ -827,6 +1008,49 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       pendingStreamViewersRef.current[kind].add(viewerId);
     }
   }, []);
+
+  const startEvidenceRecorder = useCallback((stream: MediaStream) => {
+    if (recorderRef.current) return;
+    if (typeof MediaRecorder === 'undefined') return;
+    try {
+      const h264Mime = 'video/webm;codecs=h264,opus';
+      const vp8Mime = 'video/webm;codecs=vp8,opus';
+      const mimeType = MediaRecorder.isTypeSupported(h264Mime)
+        ? h264Mime
+        : MediaRecorder.isTypeSupported(vp8Mime)
+          ? vp8Mime
+          : 'video/webm';
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 900_000,
+      });
+      recorder.ondataavailable = (event) => {
+        if (!event.data || event.data.size === 0) return;
+        const now = Date.now();
+        bufferRef.current.push({ blob: event.data, ts: now });
+        while (bufferRef.current.length > 0 && now - bufferRef.current[0].ts > 15000) {
+          bufferRef.current.shift();
+        }
+        if (captureTailRef.current?.active) {
+          captureTailRef.current.chunks.push(event.data);
+        }
+      };
+      recorder.start(1000);
+      recorderRef.current = recorder;
+    } catch {
+      // ignore recorder start errors
+    }
+  }, []);
+
+  const stopEvidenceRecorder = useCallback(() => {
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      recorderRef.current = null;
+    }
+    bufferRef.current = [];
+    captureTailRef.current = null;
+  }, []);
+
 
   useEffect(() => {
     try {
@@ -851,7 +1075,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   const loadProfile = useCallback(async () => {
     if (!studentId) return;
     try {
-      const data = await api.getStudentProfile(studentId);
+      const data = await api.getStudentProfile(studentId) as any;
       setProfileData({
         id: data.id,
         full_name: data.full_name,
@@ -869,33 +1093,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
-
-  const logViolation = useCallback(
-    async (payload: Record<string, any>) => {
-      try {
-        await api.reportViolation(activeSessionId || undefined, payload);
-      } catch {
-        pendingViolationsRef.current.push(payload);
-      }
-    },
-    [activeSessionId]
-  );
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (pendingViolationsRef.current.length === 0) return;
-      const queue = [...pendingViolationsRef.current];
-      pendingViolationsRef.current = [];
-      for (const payload of queue) {
-        try {
-          await api.reportViolation(activeSessionId || undefined, payload);
-        } catch {
-          pendingViolationsRef.current.push(payload);
-        }
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [activeSessionId]);
 
   useEffect(() => {
     let active = true;
@@ -975,13 +1172,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       startCameraStream();
     } else {
       stopScreenShare();
+      stopAudioMonitor();
+      stopEvidenceRecorder();
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       cameraStreamRef.current = null;
       setCameraStream(null);
     }
-  }, [view, startCameraStream, stopScreenShare]);
+  }, [view, startCameraStream, stopScreenShare, stopAudioMonitor, stopEvidenceRecorder]);
 
   useEffect(() => {
     if (view !== 'verification') return;
@@ -1010,8 +1209,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     await new Promise((resolve) => setTimeout(resolve, 300));
     const canvas = canvasRef.current || document.createElement('canvas');
     canvasRef.current = canvas;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    const maxWidth = 640;
+    const scale = vw > maxWidth ? maxWidth / vw : 1;
+    canvas.width = Math.round(vw * scale);
+    canvas.height = Math.round(vh * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas не доступен');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -1022,35 +1225,48 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   };
 
   const verifyFaceClient = async (snapshotBase64: string): Promise<{ verified: boolean; message?: string }> => {
-    if (!modelsReady) {
-      return { verified: false, message: 'Модели распознавания не загружены' };
-    }
-    if (!profileDescriptorRef.current) {
-      return { verified: false, message: 'Нет эталонного фото лица' };
-    }
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Image load failed'));
-        image.src = snapshotBase64;
-      });
-      const detection = await faceapi
-        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-      if (!detection?.descriptor) {
-        return { verified: false, message: 'Лицо не обнаружено' };
+    // Try client-side verification first
+    if (modelsReady && profileDescriptorRef.current) {
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('Image load failed'));
+          image.src = snapshotBase64;
+        });
+        const detection = await faceapi
+          .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (!detection?.descriptor) {
+          return { verified: false, message: 'Лицо не обнаружено' };
+        }
+        const distance = faceapi.euclideanDistance(profileDescriptorRef.current, detection.descriptor);
+        const threshold = 0.6;
+        return {
+          verified: distance < threshold,
+          message: distance < threshold ? 'OK' : 'Лицо не совпадает',
+        };
+      } catch (clientErr) {
+        console.warn('Client-side face verification failed, falling back to server:', clientErr);
       }
-      const distance = faceapi.euclideanDistance(profileDescriptorRef.current, detection.descriptor);
-      const threshold = 0.6;
-      return {
-        verified: distance < threshold,
-        message: distance < threshold ? 'OK' : 'Лицо не совпадает',
-      };
-    } catch {
-      return { verified: false, message: 'Ошибка распознавания лица' };
     }
+
+    // Fallback to server-side verification
+    if (effectiveStudentId) {
+      try {
+        const result = await api.verifyStudentPhoto(effectiveStudentId, snapshotBase64) as any;
+        return {
+          verified: result?.verified === true,
+          message: result?.message || (result?.verified ? 'OK' : 'Верификация не пройдена'),
+        };
+      } catch (serverErr) {
+        console.error('Server-side face verification failed:', serverErr);
+        return { verified: false, message: 'Ошибка проверки на сервере' };
+      }
+    }
+
+    return { verified: false, message: 'Не удалось выполнить верификацию' };
   };
 
   const eyeAspectRatio = (points: faceapi.Point[]) => {
@@ -1061,7 +1277,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     return (p2p6 + p3p5) / (2.0 * p1p4);
   };
 
-  const verifyLivenessBlink = async (durationMs = 3000): Promise<boolean> => {
+  const verifyLivenessBlink = async (durationMs = 4500): Promise<boolean> => {
     if (!modelsReady) return false;
     const localStream = cameraStreamRef.current
       ? null
@@ -1078,12 +1294,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     let blinked = false;
     let moved = false;
     let wasClosed = false;
-    const threshold = 0.25;
+    const threshold = 0.28;
     let lastCenter: { x: number; y: number } | null = null;
 
     while (Date.now() - start < durationMs) {
       const detection = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
         .withFaceLandmarks();
       if (detection?.landmarks) {
         const leftEye = detection.landmarks.getLeftEye();
@@ -1094,7 +1310,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         if (lastCenter) {
           const dx = Math.abs(center.x - lastCenter.x);
           const dy = Math.abs(center.y - lastCenter.y);
-          if (dx + dy > 12) moved = true;
+          if (dx + dy > 6) moved = true;
         }
         lastCenter = center;
         if (ear < threshold) {
@@ -1104,7 +1320,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           break;
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 120));
     }
 
     if (localStream) {
@@ -1113,8 +1329,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
 
     return blinked || moved;
   };
-
-  const effectiveStudentId = studentId ?? profileData?.id ?? null;
 
   const detectGazeAway = async (snapshotBase64: string): Promise<{ away: boolean; message?: string }> => {
     if (!modelsReady) return { away: false, message: 'Модели распознавания не загружены' };
@@ -1126,7 +1340,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         image.src = snapshotBase64;
       });
       const detection = await faceapi
-        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
         .withFaceLandmarks();
       if (!detection?.landmarks) {
         return { away: true, message: 'Лицо не обнаружено' };
@@ -1172,7 +1386,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       });
       const detections = await faceapi.detectAllFaces(
         img,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 })
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
       );
       return detections.length > 1;
     } catch {
@@ -1222,7 +1436,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         setWarning(true);
         setWarningMessage(gaze.message || 'Отведение взгляда в сторону');
         if (effectiveStudentId) {
-          await logViolation({
+          void logViolation({
             violation_type: 'gaze_away',
             timestamp: new Date().toISOString(),
             confidence: 0.6,
@@ -1385,11 +1599,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
     setFaceCheckLoading(true);
     setFaceCheckError(null);
     try {
-      const status = await api.checkStudentPhoto(effectiveStudentId);
+      const status = await api.checkStudentPhoto(effectiveStudentId) as any;
       if (!status?.has_photo) {
         notify('Сначала загрузите фото в профиле');
+        setFaceCheckError('Сначала загрузите фото в профиле');
         return false;
       }
+
+      // Load profile data if needed for client-side verification
+      if (!profileData?.photo_base64) {
+        try {
+          const data = await api.getStudentProfile(effectiveStudentId) as any;
+          if (data?.photo_base64) {
+            setProfileData(prev => ({ ...prev, ...data }));
+          }
+        } catch {
+          console.warn('Could not load profile photo, will use server-side verification');
+        }
+      }
+
       notify('Пожалуйста, моргните для проверки живности');
       const isLive = await verifyLivenessBlink();
       if (!isLive) {
@@ -1449,6 +1677,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           // ignore
         }
       }
+      examStartAtRef.current = Date.now();
       setView('exam');
       return true;
     }
@@ -1493,6 +1722,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
 
   useEffect(() => {
     if (view !== 'exam') return;
+    startAudioMonitor();
+    return () => stopAudioMonitor();
+  }, [view, startAudioMonitor, stopAudioMonitor]);
+
+  useEffect(() => {
+    if (view !== 'exam' || !cameraStream) return;
+    startEvidenceRecorder(cameraStream);
+    return () => stopEvidenceRecorder();
+  }, [view, cameraStream, startEvidenceRecorder, stopEvidenceRecorder]);
+
+  useEffect(() => {
+    if (view !== 'exam') return;
     ensureObjectModel().catch(() => {});
   }, [view, ensureObjectModel]);
 
@@ -1507,24 +1748,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       try {
         const snapshot = await captureSnapshot();
         const result = await verifyFaceClient(snapshot);
-        if (!result?.verified) {
-          setWarning(true);
-          setWarningMessage(result?.message || 'Внимание: посмотрите в камеру!');
-          const now = Date.now();
-          if (now - lastViolationAtRef.current > 10000) {
-            lastViolationAtRef.current = now;
-            const isSubstitution = (result?.message || '').toLowerCase().includes('не совпадает');
-            await logViolation({
-              violation_type: isSubstitution ? 'face_substitution' : 'face_missing',
-              timestamp: new Date().toISOString(),
-              confidence: isSubstitution ? 0.8 : 0.5,
-              student_id: effectiveStudentId,
-              exam_id: activeExamId,
-            });
-          }
-          return;
-        }
-
+        const inGrace = Date.now() - examStartAtRef.current < 5000;
         const multipleFaces = await detectMultipleFaces(snapshot);
         if (multipleFaces) {
           setWarning(true);
@@ -1532,13 +1756,36 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           const now = Date.now();
           if (now - lastMultipleFacesAtRef.current > 8000) {
             lastMultipleFacesAtRef.current = now;
-            await logViolation({
+            void logViolation({
               violation_type: 'multiple_faces',
               timestamp: new Date().toISOString(),
               confidence: 0.8,
               student_id: effectiveStudentId,
               exam_id: activeExamId,
             });
+          }
+          return;
+        }
+
+        if (!result?.verified) {
+          if (inGrace) return;
+          setWarning(true);
+          setWarningMessage(result?.message || 'Внимание: посмотрите в камеру!');
+          const now = Date.now();
+          if (now - lastViolationAtRef.current > 10000) {
+            lastViolationAtRef.current = now;
+            const messageText = (result?.message || '').toLowerCase();
+            const isNoFace = messageText.includes('лицо не обнаружено') || messageText.includes('no face');
+            const isSubstitution = messageText.includes('не совпадает');
+            if (isSubstitution || isNoFace) {
+              void logViolation({
+                violation_type: isSubstitution ? 'face_substitution' : 'face_missing',
+                timestamp: new Date().toISOString(),
+                confidence: isSubstitution ? 0.8 : 0.5,
+                student_id: effectiveStudentId,
+                exam_id: activeExamId,
+              });
+            }
           }
           return;
         }
@@ -1571,7 +1818,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
             const lastAt = lastObjectViolationAtRef.current[violationType] || 0;
             if (now - lastAt > 10000) {
               lastObjectViolationAtRef.current[violationType] = now;
-              await logViolation({
+              void logViolation({
                 violation_type: violationType,
                 timestamp: new Date().toISOString(),
                 confidence: 0.7,
@@ -1590,7 +1837,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           const now = Date.now();
           if (now - lastGazeViolationAtRef.current > 8000) {
             lastGazeViolationAtRef.current = now;
-            await logViolation({
+            void logViolation({
               violation_type: 'gaze_away',
               timestamp: new Date().toISOString(),
               confidence: 0.6,
@@ -1656,6 +1903,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           profileData={profileData}
           onProfileRefresh={loadProfile}
           lang={lang}
+          setLang={handleLangChange}
+          isDark={isDark}
+          setIsDark={setIsDark}
         />
       </>
     );
@@ -1663,10 +1913,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
 
   if (view === 'verification') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 select-none">
-        <div className="max-w-xl w-full bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
-          <h3 className="text-xl font-black text-slate-900 mb-4 uppercase tracking-tight">Верификация перед экзаменом</h3>
-          <p className="text-slate-500 text-sm font-medium mb-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-6 select-none">
+          <div className="max-w-xl w-full bg-white dark:bg-slate-800 rounded-[2.5rem] p-10 shadow-xl border border-slate-100 dark:border-slate-700">
+            <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-4 uppercase tracking-tight">Верификация перед экзаменом</h3>
+            <p className="text-slate-500 dark:text-slate-300 text-sm font-medium mb-8">
             Для начала экзамена подтвердите личность через камеру.
           </p>
 
@@ -1722,7 +1972,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden select-none">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
       <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
         {notifications.map((n) => (
           <div key={n.id} className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-[11px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4">
@@ -1731,7 +1981,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         ))}
       </div>
 
-      <header className="h-20 flex-none bg-white border-b border-slate-200 px-6 md:px-10 flex items-center justify-between z-30 shadow-sm sticky top-0">
+      <header className="h-20 flex-none bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 md:px-10 flex items-center justify-between z-30 shadow-sm sticky top-0">
         <div className="flex items-center gap-6">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -1743,15 +1993,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
           <div className="flex items-center gap-4">
             <OpenProctorLogo className="w-10 h-10 text-slate-800" />
             <div className="hidden sm:block">
-              <h1 className="font-black text-slate-900 text-lg leading-none tracking-tight">
+              <h1 className="font-black text-slate-900 dark:text-slate-100 text-lg leading-none tracking-tight">
                 OpenProctor<span className="text-orange-500 ml-0.5">AI</span>
               </h1>
-              <span className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1 block">Session ID: #824-A</span>
+              <span className="text-[9px] text-slate-400 dark:text-slate-400 font-black uppercase tracking-[0.2em] mt-1 block">Session ID: #824-A</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-4 md:gap-8">
+          <div className="hidden sm:flex items-center gap-2">
+            <LanguageSwitcher lang={lang} setLang={handleLangChange} isDark={isDark} />
+            <ThemeToggle isDark={isDark} setIsDark={setIsDark} />
+          </div>
           <div
             className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl font-mono text-sm font-black border-2 transition-all shadow-inner ${
               timeLeft < 300 ? 'bg-orange-50 border-orange-200 text-orange-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-600'
@@ -1881,6 +2135,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         stream={cameraStream}
         cameraError={cameraError}
         onRetry={startCameraStream}
+        noiseStatus={noiseStatus}
       />
 
       <Modal

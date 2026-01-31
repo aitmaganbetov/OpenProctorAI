@@ -1,6 +1,9 @@
 // src/services/api.ts
-const API_BASE_URL = '/api/v1';
 
+const API_BASE_URL = '/api/v1';
+const DEBUG = import.meta.env.DEV;
+
+// Types
 export interface ExamSession {
   id: string;
   exam_id: string;
@@ -41,6 +44,18 @@ export interface Violation {
   video_url?: string;
 }
 
+// Error class for API errors
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 class ApiService {
   private static instance: ApiService;
 
@@ -53,278 +68,204 @@ class ApiService {
     return ApiService.instance;
   }
 
-  async post<T>(endpoint: string, data: any): Promise<T> {
+  private log(message: string, data?: unknown): void {
+    if (DEBUG) {
+      console.log(`[API] ${message}`, data ?? '');
+    }
+  }
+
+  private async handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      if (DEBUG) {
+        console.error('[API] Error:', { status: response.status, body: errorText });
+      }
+      throw new ApiError(
+        `API error ${response.status}: ${response.statusText}`,
+        response.status,
+        errorText
+      );
+    }
+    return response.json();
+  }
+
+  async post<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log('[API] POST request to:', url);
-    console.log('[API] Request data:', data);
+    this.log('POST', { url, data });
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
+    
+    return this.handleResponse<T>(response);
   }
 
   async get<T>(endpoint: string): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log('[API] GET request to:', url);
+    this.log('GET', url);
+    
     const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
+    return this.handleResponse<T>(response);
+  }
+
+  async put<T>(endpoint: string, data: unknown): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    this.log('PUT', { url, data });
+    
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse<T>(response);
+  }
+
+  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    this.log('PATCH', { url, data });
+    
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: data ? { 'Content-Type': 'application/json' } : {},
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    
+    return this.handleResponse<T>(response);
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    this.log('DELETE', url);
+    
+    const response = await fetch(url, { method: 'DELETE' });
+    return this.handleResponse<T>(response);
   }
 
   async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log('[API] POST FormData request to:', url);
+    this.log('POST FormData', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
     });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
+    
+    return this.handleResponse<T>(response);
   }
 
-  // Exam endpoints
-  async getExams(): Promise<Exam[]> {
-    return this.get<Exam[]>('/exams');
-  }
+  // === Exam endpoints ===
+  
+  getExams = (): Promise<Exam[]> => this.get('/exams');
+  
+  createExam = (exam: Partial<Exam>): Promise<Exam> => this.post('/exams', exam);
+  
+  putExam = (examId: number | string, exam: Partial<Exam>): Promise<Exam> =>
+    this.put(`/exams/${examId}`, exam);
 
-  async createExam(exam: Partial<Exam>): Promise<Exam> {
-    return this.post<Exam>('/exams', exam);
-  }
+  startExamSession = (examId: string): Promise<ExamSession> =>
+    this.post('/exams/sessions', { exam_id: examId });
 
-  async putExam(examId: number | string, exam: Partial<Exam>): Promise<Exam> {
-    const url = `${API_BASE_URL}/exams/${examId}`;
-    console.log('[API] PUT request to:', url);
-    console.log('[API] Request data:', exam);
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(exam),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  endExamSession = (sessionId: string, answers: unknown): Promise<ExamSession> =>
+    this.post(`/exams/sessions/${sessionId}/finish`, { answers });
 
-  async startExamSession(examId: string): Promise<ExamSession> {
-    return this.post<ExamSession>(`/exams/sessions`, { exam_id: examId });
-  }
+  // === Violation endpoints ===
+  
+  reportViolation = (sessionId: string | number | undefined, violation: Record<string, unknown>): Promise<unknown> => {
+    const payload = sessionId ? { ...violation, session_id: sessionId } : violation;
+    return this.post('/proctoring/report-violation', payload);
+  };
 
-  async endExamSession(sessionId: string, answers: any): Promise<ExamSession> {
-    return this.post<ExamSession>(`/exams/sessions/${sessionId}/finish`, { answers });
-  }
+  reportViolationEvidence = (form: FormData): Promise<unknown> =>
+    this.postFormData('/proctoring/report-violation-evidence', form);
 
-  async reportViolation(sessionId: string | number | undefined, violation: any): Promise<any> {
-    const payload: Record<string, any> = { ...violation };
-    if (sessionId) {
-      payload.session_id = sessionId;
-    }
-    return this.post(`/proctoring/report-violation`, payload);
-  }
+  // === Assignment endpoints ===
+  
+  assignExam = (
+    examId: number | string,
+    payload: { student_id?: number; student_email?: string; due_date?: string }
+  ): Promise<unknown> => this.post(`/exams/${examId}/assign`, payload);
 
-  async assignExam(examId: number | string, payload: { student_id?: number; student_email?: string; due_date?: string; }): Promise<any> {
-    return this.post(`/exams/${examId}/assign`, payload);
-  }
+  getAssignments = (): Promise<unknown[]> => this.get('/exams/assignments');
 
-  async getAssignments(): Promise<any[]> {
-    return this.get<any[]>('/exams/assignments');
-  }
+  getExamAssignments = (examId: number | string): Promise<unknown[]> =>
+    this.get(`/exams/${examId}/assignments`);
 
-  async getExamAssignments(examId: number | string): Promise<any[]> {
-    return this.get<any[]>(`/exams/${examId}/assignments`);
-  }
+  deleteAssignment = (assignmentId: number | string): Promise<unknown> =>
+    this.delete(`/exams/assignments/${assignmentId}`);
 
-  async deleteAssignment(assignmentId: number | string): Promise<any> {
-    const url = `${API_BASE_URL}/exams/assignments/${assignmentId}`;
-    console.log('[API] DELETE request to:', url);
-    const response = await fetch(url, { method: 'DELETE' });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  updateAssignment = (
+    assignmentId: number | string,
+    payload: { due_date?: string; status?: string }
+  ): Promise<unknown> => this.patch(`/exams/assignments/${assignmentId}`, payload);
 
-  async updateAssignment(assignmentId: number | string, payload: { due_date?: string; status?: string }): Promise<any> {
-    const url = `${API_BASE_URL}/exams/assignments/${assignmentId}`;
-    console.log('[API] PATCH request to:', url);
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  // === Student Photo endpoints ===
+  
+  uploadStudentPhoto = (studentId: number, photoBase64: string): Promise<unknown> =>
+    this.post(`/proctoring/student/${studentId}/photo`, { photo: photoBase64 });
 
-  async uploadStudentPhoto(studentId: number, photoBase64: string): Promise<any> {
-    const url = `${API_BASE_URL}/proctoring/student/${studentId}/photo`;
-    console.log('[API] POST photo upload to:', url);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo: photoBase64 }),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Photo upload response:', result);
-    return result;
-  }
+  checkStudentPhoto = (studentId: number): Promise<unknown> =>
+    this.get(`/proctoring/student/${studentId}/photo-status`);
 
-  // Admin endpoints
-  async getAdminUsers(): Promise<any[]> {
-    return this.get<any[]>('/admin/users');
-  }
+  getStudentProfile = (studentId: number): Promise<unknown> =>
+    this.get(`/proctoring/student/${studentId}/profile`);
 
-  async createAdminUser(payload: { email: string; full_name?: string; name?: string; role?: string; password?: string }): Promise<any> {
-    return this.post<any>('/admin/users', payload);
-  }
+  verifyStudentPhoto = (studentId: number, examPhotoBase64: string): Promise<unknown> =>
+    this.post(`/proctoring/student/${studentId}/verify-photo`, { exam_photo: examPhotoBase64 });
 
-  async toggleAdminUser(userId: number): Promise<any> {
-    const url = `${API_BASE_URL}/admin/users/${userId}/toggle`;
-    console.log('[API] PATCH request to:', url);
-    const response = await fetch(url, { method: 'PATCH' });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  // === Admin endpoints ===
+  
+  getAdminUsers = (): Promise<unknown[]> => this.get('/admin/users');
 
-  async deleteAdminUser(userId: number): Promise<any> {
-    const url = `${API_BASE_URL}/admin/users/${userId}`;
-    console.log('[API] DELETE request to:', url);
-    const response = await fetch(url, { method: 'DELETE' });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  createAdminUser = (payload: {
+    email: string;
+    full_name?: string;
+    name?: string;
+    role?: string;
+    password?: string;
+  }): Promise<unknown> => this.post('/admin/users', payload);
 
-  async getAdminLogs(): Promise<any[]> {
-    return this.get<any[]>('/admin/logs');
-  }
+  toggleAdminUser = (userId: number): Promise<unknown> =>
+    this.patch(`/admin/users/${userId}/toggle`);
 
-  async getServerStatus(): Promise<any> {
-    return this.get<any>('/admin/server-status');
-  }
+  deleteAdminUser = (userId: number): Promise<unknown> =>
+    this.delete(`/admin/users/${userId}`);
 
-  async checkStudentPhoto(studentId: number): Promise<any> {
-    const url = `${API_BASE_URL}/proctoring/student/${studentId}/photo-status`;
-    console.log('[API] GET photo status from:', url);
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Photo status response:', result);
-    return result;
-  }
+  getAdminLogs = (): Promise<unknown[]> => this.get('/admin/logs');
 
-  async getStudentProfile(studentId: number): Promise<any> {
-    return this.get<any>(`/proctoring/student/${studentId}/profile`);
-  }
+  getServerStatus = (): Promise<unknown> => this.get('/admin/server-status');
 
-  async verifyStudentPhoto(studentId: number, examPhotoBase64: string): Promise<any> {
-    const url = `${API_BASE_URL}/proctoring/student/${studentId}/verify-photo`;
-    console.log('[API] POST photo verification to:', url);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exam_photo: examPhotoBase64 }),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Photo verification response:', result);
-    return result;
-  }
+  // === Teacher Dashboard endpoints ===
+  
+  getDashboardStudents = (): Promise<unknown[]> => this.get('/exams/dashboard/students');
 
-  // Teacher Dashboard endpoints
-  async getDashboardStudents(): Promise<any[]> {
-    return this.get<any[]>('/exams/dashboard/students');
-  }
+  createDashboardStudent = (payload: {
+    email: string;
+    full_name?: string;
+    name?: string;
+    password?: string;
+    group?: string;
+  }): Promise<unknown> => this.post('/exams/dashboard/students', payload);
 
-  async createDashboardStudent(payload: { email: string; full_name?: string; name?: string; password?: string; group?: string; }): Promise<any> {
-    return this.post<any>('/exams/dashboard/students', payload);
-  }
+  deleteDashboardStudent = (studentId: number): Promise<unknown> =>
+    this.delete(`/exams/dashboard/students/${studentId}`);
 
-  async deleteDashboardStudent(studentId: number): Promise<any> {
-    const url = `${API_BASE_URL}/exams/dashboard/students/${studentId}`;
-    console.log('[API] DELETE request to:', url);
-    const response = await fetch(url, { method: 'DELETE' });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
-    }
-    const result = await response.json();
-    console.log('[API] Response:', result);
-    return result;
-  }
+  importDashboardStudents = (
+    students: Array<{
+      email: string;
+      full_name?: string;
+      name?: string;
+      password?: string;
+      group?: string;
+    }>
+  ): Promise<unknown> => this.post('/exams/dashboard/students/import', { students });
 
-  async importDashboardStudents(students: Array<{ email: string; full_name?: string; name?: string; password?: string; group?: string; }>): Promise<any> {
-    return this.post<any>('/exams/dashboard/students/import', { students });
-  }
+  getDashboardSessions = (): Promise<unknown[]> => this.get('/exams/dashboard/sessions');
 
-  async getDashboardSessions(): Promise<any[]> {
-    return this.get<any[]>('/exams/dashboard/sessions');
-  }
-
-  async getStudentSessions(studentId: number): Promise<any[]> {
-    return this.get<any[]>(`/exams/dashboard/sessions/${studentId}`);
-  }
-
+  getStudentSessions = (studentId: number): Promise<unknown[]> =>
+    this.get(`/exams/dashboard/sessions/${studentId}`);
 }
 
 export default ApiService.getInstance();

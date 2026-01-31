@@ -1,91 +1,131 @@
 // src/hooks/useEnvironmentMonitor.ts
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
 type ViolationCallback = (type: string, details?: string) => void;
 
 interface MonitorOptions {
   requireFullscreen?: boolean;
   blockCopyPaste?: boolean;
+  enabled?: boolean;
 }
 
-export const useEnvironmentMonitor = (
-  onViolation: ViolationCallback, 
-  options: MonitorOptions = { requireFullscreen: true, blockCopyPaste: true }
-) => {
+const DEFAULT_OPTIONS: Required<MonitorOptions> = {
+  requireFullscreen: true,
+  blockCopyPaste: true,
+  enabled: true,
+};
 
-  // 1. Детекция переключения вкладки (Visibility API)
+/**
+ * Hook for monitoring user environment during exam.
+ * Detects tab switches, focus loss, fullscreen exit, and clipboard access.
+ */
+export const useEnvironmentMonitor = (
+  onViolation: ViolationCallback,
+  options: MonitorOptions = {}
+) => {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const callbackRef = useRef(onViolation);
+
+  // Keep callback ref updated without re-subscribing to events
+  useEffect(() => {
+    callbackRef.current = onViolation;
+  }, [onViolation]);
+
+  // Tab visibility change handler
   const handleVisibilityChange = useCallback(() => {
     if (document.hidden) {
-      onViolation("TAB_SWITCH", "User switched browser tab");
+      callbackRef.current('TAB_SWITCH', 'User switched browser tab');
     }
-  }, [onViolation]);
+  }, []);
 
-  // 2. Детекция потери фокуса окна (Alt+Tab или открытие другого окна)
+  // Window blur handler (Alt+Tab or overlay app)
   const handleWindowBlur = useCallback(() => {
-    // Не считаем нарушением, если документ скрыт (т.к. сработает handleVisibilityChange)
-    // Это нужно, чтобы не дублировать события
+    // Don't duplicate if document is hidden (visibility change fires first)
     if (!document.hidden) {
-      onViolation("FOCUS_LOSS", "Window lost focus (overlay app or dual monitor)");
+      callbackRef.current('FOCUS_LOSS', 'Window lost focus (overlay app or dual monitor)');
     }
-  }, [onViolation]);
+  }, []);
 
-  // 3. Контроль полного экрана
+  // Fullscreen change handler
   const handleFullscreenChange = useCallback(() => {
-    if (options.requireFullscreen && !document.fullscreenElement) {
-       onViolation("FULLSCREEN_EXIT", "User exited fullscreen mode");
+    if (!document.fullscreenElement) {
+      callbackRef.current('FULLSCREEN_EXIT', 'User exited fullscreen mode');
     }
-  }, [onViolation, options.requireFullscreen]);
+  }, []);
 
-  // 4. Блокировка и логирование копипаста
-  const handleCopyPaste = useCallback((e: ClipboardEvent) => {
-    if (options.blockCopyPaste) {
-      e.preventDefault();
-      // Определяем тип действия (copy, cut, paste)
-      onViolation("CLIPBOARD_ATTEMPT", `Attempted to ${e.type} content`);
-    }
-  }, [onViolation, options.blockCopyPaste]);
+  // Clipboard event handler
+  const handleClipboard = useCallback((e: ClipboardEvent) => {
+    e.preventDefault();
+    callbackRef.current('CLIPBOARD_ATTEMPT', `Attempted to ${e.type} content`);
+  }, []);
 
-  // 5. Защита от контекстного меню (Right Click)
+  // Context menu blocker
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();
   }, []);
 
+  // Subscribe to events
   useEffect(() => {
-    // Подписываемся на события
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleWindowBlur);
-    
-    if (options.requireFullscreen) {
-      document.addEventListener("fullscreenchange", handleFullscreenChange);
-    }
-    
-    if (options.blockCopyPaste) {
-      document.addEventListener("copy", handleCopyPaste as any);
-      document.addEventListener("cut", handleCopyPaste as any);
-      document.addEventListener("paste", handleCopyPaste as any);
-      document.addEventListener("contextmenu", handleContextMenu);
+    if (!opts.enabled) return;
+
+    // Visibility and focus
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    // Fullscreen
+    if (opts.requireFullscreen) {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
     }
 
+    // Clipboard blocking
+    if (opts.blockCopyPaste) {
+      const clipboardHandler = handleClipboard as EventListener;
+      document.addEventListener('copy', clipboardHandler);
+      document.addEventListener('cut', clipboardHandler);
+      document.addEventListener('paste', clipboardHandler);
+      document.addEventListener('contextmenu', handleContextMenu);
+    }
+
+    // Cleanup
     return () => {
-      // Чистим за собой
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleWindowBlur);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("copy", handleCopyPaste as any);
-      document.removeEventListener("cut", handleCopyPaste as any);
-      document.removeEventListener("paste", handleCopyPaste as any);
-      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      
+      const clipboardHandler = handleClipboard as EventListener;
+      document.removeEventListener('copy', clipboardHandler);
+      document.removeEventListener('cut', clipboardHandler);
+      document.removeEventListener('paste', clipboardHandler);
+      document.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [handleVisibilityChange, handleWindowBlur, handleFullscreenChange, handleCopyPaste, handleContextMenu, options]);
+  }, [opts.enabled, opts.requireFullscreen, opts.blockCopyPaste, handleVisibilityChange, handleWindowBlur, handleFullscreenChange, handleClipboard, handleContextMenu]);
 
-  // Хелпер для принудительного входа в Fullscreen
-  const enterFullscreen = async () => {
+  // Fullscreen helper
+  const enterFullscreen = useCallback(async (): Promise<boolean> => {
     try {
       await document.documentElement.requestFullscreen();
-    } catch (e) {
-      console.error("Fullscreen denied", e);
+      return true;
+    } catch (error) {
+      console.error('Fullscreen request denied:', error);
+      return false;
     }
-  };
+  }, []);
 
-  return { enterFullscreen };
+  const exitFullscreen = useCallback(async (): Promise<boolean> => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+      return true;
+    } catch (error) {
+      console.error('Exit fullscreen failed:', error);
+      return false;
+    }
+  }, []);
+
+  return {
+    enterFullscreen,
+    exitFullscreen,
+    isFullscreen: !!document.fullscreenElement,
+  };
 };

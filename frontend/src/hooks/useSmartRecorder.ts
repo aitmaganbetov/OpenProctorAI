@@ -1,34 +1,74 @@
-import { useEffect, useRef, useCallback } from 'react';
+// src/hooks/useSmartRecorder.ts
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { SmartRecorder } from '../utils/SmartRecorder';
 
-export const useSmartRecorder = (stream: MediaStream | null) => {
+interface UseSmartRecorderOptions {
+  bufferDurationSec?: number;
+}
+
+interface UseSmartRecorderReturn {
+  isRecording: boolean;
+  captureViolation: () => Promise<Blob>;
+  error: Error | null;
+}
+
+/**
+ * Hook for smart video recording with rolling buffer.
+ * Maintains a buffer of recent footage and captures violations on demand.
+ */
+export const useSmartRecorder = (
+  stream: MediaStream | null,
+  options: UseSmartRecorderOptions = {}
+): UseSmartRecorderReturn => {
   const recorderRef = useRef<SmartRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (stream) {
-      recorderRef.current = new SmartRecorder(stream);
-      recorderRef.current.start();
-      console.log("✅ Smart Recorder started");
+    if (!stream) {
+      recorderRef.current = null;
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      const recorder = new SmartRecorder(stream, options.bufferDurationSec);
+      recorder.start();
+      recorderRef.current = recorder;
+      setIsRecording(true);
+      setError(null);
+
+      console.log('✅ Smart Recorder started');
+    } catch (err) {
+      console.error('Failed to initialize SmartRecorder:', err);
+      setError(err instanceof Error ? err : new Error('Failed to initialize recorder'));
     }
 
     return () => {
       recorderRef.current?.stop();
+      recorderRef.current = null;
+      setIsRecording(false);
     };
-  }, [stream]);
+  }, [stream, options.bufferDurationSec]);
 
-  const captureViolation = useCallback(async (): Promise<Blob> => {
+  const captureViolation = useCallback((): Promise<Blob> => {
     return new Promise((resolve, reject) => {
-      if (!recorderRef.current) {
-        reject("Recorder not initialized");
+      const recorder = recorderRef.current;
+
+      if (!recorder) {
+        reject(new Error('Recorder not initialized'));
         return;
       }
 
-      // Триггерим запись и ждем завершения (через 10 секунд)
-      recorderRef.current.triggerViolation((blob) => {
-        resolve(blob);
-      });
+      try {
+        recorder.triggerViolation((blob) => {
+          resolve(blob);
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
   }, []);
 
-  return { captureViolation };
+  return { isRecording, captureViolation, error };
 };
