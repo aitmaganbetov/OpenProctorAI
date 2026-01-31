@@ -32,20 +32,31 @@ export const useAuth = () => {
   }, []);
 
   const login = useCallback(
-    async (email: string, _password: string, role: 'teacher' | 'student') => {
+    async (email: string, password: string, _role: 'teacher' | 'student') => {
       setLoading(true);
       setError(null);
       try {
-        // Simulate login - in production, call your auth API
-        const mockUser: User = {
-          id: Math.random().toString(36).substr(2, 9),
-          email,
-          name: email.split('@')[0],
-          role,
+        const response = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Login failed');
+        }
+
+        const data = await response.json();
+        const loggedUser: User = {
+          id: String(data.id),
+          email: data.email,
+          name: data.full_name || data.email?.split('@')[0] || 'User',
+          role: data.role,
         };
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        return mockUser;
+        setUser(loggedUser);
+        localStorage.setItem('user', JSON.stringify(loggedUser));
+        return loggedUser;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Login failed';
         setError(message);

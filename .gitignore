@@ -13,4 +13,8 @@ venv/
 .dockerignore
 
 # Логи сервера
+
+# Node.js
+node_modules/
+frontend/node_modules/
 *.log

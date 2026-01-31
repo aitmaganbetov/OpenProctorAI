@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.models import ExamSession, Exam, User, UserRole
+from app.models.models import ExamSession, Exam, User, UserRole, Violation
 from datetime import datetime
 from app.services.ai_analyzer import ExamAnalyzer
 from typing import List, Dict, Any
@@ -280,3 +280,196 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db)) -> Dict
     except Exception as e:
         db.rollback()
         return {"error": str(e)}
+
+# Teacher Dashboard Endpoints
+@router.get("/dashboard/students")
+def get_all_students(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """Get all students for teacher dashboard."""
+    students = db.query(User).filter(User.role == UserRole.STUDENT).all()
+    if not students:
+        seed = [
+            {
+                "email": "s.chen@university.edu",
+                "full_name": "Сара Чен",
+                "hashed_password": "demo_password",
+            },
+            {
+                "email": "m.johnson@university.edu",
+                "full_name": "Маркус Джонсон",
+                "hashed_password": "demo_password",
+            },
+            {
+                "email": "a.petrov@university.edu",
+                "full_name": "Алексей Петров",
+                "hashed_password": "demo_password",
+            },
+        ]
+        for s in seed:
+            exists = db.query(User).filter(User.email == s["email"]).first()
+            if not exists:
+                db.add(User(
+                    email=s["email"],
+                    full_name=s["full_name"],
+                    hashed_password=s["hashed_password"],
+                    role=UserRole.STUDENT,
+                    is_active=True
+                ))
+        db.commit()
+        students = db.query(User).filter(User.role == UserRole.STUDENT).all()
+    results = []
+    for student in students:
+        results.append({
+            "id": student.id,
+            "email": student.email,
+            "full_name": student.full_name or f"Student {student.id}",
+            "role": student.role.value,
+            "is_active": student.is_active,
+            "created_at": datetime.now().isoformat()
+        })
+    return results
+
+
+@router.post("/dashboard/students")
+def create_student(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Create a new student (demo: stores password as-is)."""
+    email = payload.get("email")
+    full_name = payload.get("full_name") or payload.get("name")
+    password = payload.get("password") or "demo_password"
+
+    if not email:
+        raise HTTPException(status_code=400, detail="email is required")
+
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    user = User(
+        email=email,
+        full_name=full_name,
+        hashed_password=password,
+        role=UserRole.STUDENT,
+        is_active=True
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "is_active": user.is_active,
+        "created_at": datetime.now().isoformat()
+    }
+
+
+@router.delete("/dashboard/students/{student_id}")
+def delete_student(student_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Delete a student by ID."""
+    student = db.query(User).filter(User.id == student_id, User.role == UserRole.STUDENT).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    db.delete(student)
+    db.commit()
+    return {"status": "deleted", "id": student_id}
+
+
+@router.post("/dashboard/students/import")
+def import_students(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Bulk import students. Expects {students: [{email, full_name, password}]}"""
+    students = payload.get("students") or []
+    created = 0
+    skipped = 0
+
+    for s in students:
+        email = s.get("email")
+        full_name = s.get("full_name") or s.get("name")
+        password = s.get("password") or "demo_password"
+        if not email:
+            skipped += 1
+            continue
+        exists = db.query(User).filter(User.email == email).first()
+        if exists:
+            skipped += 1
+            continue
+        db.add(User(
+            email=email,
+            full_name=full_name,
+            hashed_password=password,
+            role=UserRole.STUDENT,
+            is_active=True
+        ))
+        created += 1
+
+    db.commit()
+    return {"created": created, "skipped": skipped}
+
+
+@router.get("/dashboard/sessions")
+def get_all_exam_sessions(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """Get all exam sessions for monitoring."""
+    sessions = db.query(ExamSession).all()
+    results = []
+    for session in sessions:
+        student = db.query(User).filter(User.id == session.student_id).first()
+        exam = db.query(Exam).filter(Exam.id == session.exam_id).first()
+        violations = db.query(Violation).filter(Violation.session_id == session.id).all()
+        
+        results.append({
+            "id": session.id,
+            "exam_id": session.exam_id,
+            "exam_title": exam.title if exam else f"Exam {session.exam_id}",
+            "student_id": session.student_id,
+            "student_name": student.full_name if student else f"Student {session.student_id}",
+            "student_email": student.email if student else "",
+            "start_time": session.start_time.isoformat() if session.start_time else None,
+            "end_time": session.end_time.isoformat() if session.end_time else None,
+            "status": session.status,
+            "verdict": session.verdict,
+            "violations_count": len(violations),
+            "violations": [
+                {
+                    "id": v.id,
+                    "type": v.type,
+                    "timestamp": v.timestamp.isoformat() if v.timestamp else None,
+                    "severity_score": v.severity_score,
+                    "confidence": v.confidence
+                }
+                for v in violations
+            ]
+        })
+    return results
+
+
+@router.get("/dashboard/sessions/{student_id}")
+def get_student_sessions(student_id: int, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """Get exam sessions for a specific student."""
+    sessions = db.query(ExamSession).filter(ExamSession.student_id == student_id).all()
+    results = []
+    for session in sessions:
+        exam = db.query(Exam).filter(Exam.id == session.exam_id).first()
+        violations = db.query(Violation).filter(Violation.session_id == session.id).all()
+        
+        results.append({
+            "id": session.id,
+            "exam_id": session.exam_id,
+            "exam_title": exam.title if exam else f"Exam {session.exam_id}",
+            "start_time": session.start_time.isoformat() if session.start_time else None,
+            "end_time": session.end_time.isoformat() if session.end_time else None,
+            "status": session.status,
+            "verdict": session.verdict,
+            "violations_count": len(violations),
+            "violations": [
+                {
+                    "id": v.id,
+                    "type": v.type,
+                    "timestamp": v.timestamp.isoformat() if v.timestamp else None,
+                    "severity_score": v.severity_score,
+                    "confidence": v.confidence
+                }
+                for v in violations
+            ]
+        })
+    return results

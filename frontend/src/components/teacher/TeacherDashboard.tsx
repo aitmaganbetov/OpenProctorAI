@@ -1,332 +1,920 @@
 // src/components/teacher/TeacherDashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { Exam, ExamSession } from '../../services/api';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { 
+  Monitor,
+  Users,
+  BookOpen,
+  Send,
+  AlertTriangle,
+  Eye,
+  FileUp,
+  Plus,
+  Search,
+  Copy,
+  Trash2,
+  Settings,
+  CheckSquare,
+  Mail,
+  Fingerprint,
+  RefreshCw,
+  Layers,
+  Clock,
+  ChevronRight,
+  ToggleRight,
+  ToggleLeft,
+  Play,
+  Filter as FilterIcon,
+  User,
+  LogOut
+} from 'lucide-react';
 import api from '../../services/api';
-import { CreateExamForm } from './CreateExamForm';
-import { SessionDetail } from './SessionDetail';
 
 interface TeacherDashboardProps {
   onLogout?: () => void;
 }
 
-export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout }) => {
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [sessions] = useState<ExamSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const [selectedSession, setSelectedSession] = useState<ExamSession | null>(null);
-  const [activeTab, setActiveTab] = useState<'exams' | 'results' | 'assignments'>('exams');
-  const [assignments, setAssignments] = useState<any[]>([]);
+// --- Компонент Логотипа ---
+const OpenProctorLogo = ({ className = "w-8 h-8" }) => (
+  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="35" cy="50" r="25" stroke="currentColor" strokeWidth="8" />
+    <circle cx="65" cy="50" r="25" stroke="currentColor" strokeWidth="8" />
+    <path d="M50 35L60 50L50 65L40 50Z" fill="#F97316" />
+  </svg>
+);
+
+// --- Компонент выпадающего меню профиля ---
+const ProfileMenu = ({ notify, onLogout }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const examsData = await api.getExams();
-        setExams(examsData);
-        // Load assignments
-        try {
-          const assignmentsData = await api.getAssignments();
-          setAssignments(assignmentsData);
-        } catch (err) {
-          console.warn('Could not load assignments:', err);
-        }
-      } catch (error) {
-        console.error('Failed to load exams:', error);
-      } finally {
-        setLoading(false);
+    const handleClickOutside = (event: Event) => {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setIsOpen(false);
       }
     };
-
-    loadData();
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleCreateExam = async (examData: Partial<Exam>) => {
-    try {
-      console.log('[DASHBOARD] handleCreateExam called with data:', examData);
-      const response = await api.createExam(examData);
-      console.log('[DASHBOARD] Exam created successfully:', response);
-      
-      // Refresh the exams list from server to reflect persisted data
-      const examsData = await api.getExams();
-      console.log('[DASHBOARD] Refreshed exams list:', examsData);
-      setExams(examsData);
-      setShowCreateForm(false);
-      console.log('[DASHBOARD] Form closed and exams list updated');
-    } catch (error) {
-      console.error('[DASHBOARD] Failed to create exam:', error);
-      throw error;
-    }
-  };
-
-  if (selectedSession) {
-    return <SessionDetail session={selectedSession} onBack={() => setSelectedSession(null)} />;
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Teacher Dashboard</h1>
-            <p className="text-gray-400">Manage your exams and monitor student sessions</p>
-          </div>
-          <div className="flex items-center gap-4">
-            {!showCreateForm && (
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Exam
-              </button>
-            )}
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Sign Out
-              </button>
-            )}
-          </div>
+    <div className="relative" ref={menuRef}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-10 h-10 rounded-full border-2 border-white shadow-md hover:shadow-lg hover:ring-2 hover:ring-orange-500/30 transition-all flex items-center justify-center overflow-hidden active:scale-95"
+      >
+        <div className="bg-gradient-to-br from-slate-700 to-slate-900 w-full h-full flex items-center justify-center text-white text-[10px] font-black">
+          ПР
         </div>
+      </button>
 
-        {/* Create Form */}
-        {showCreateForm && (
-          <div className="mb-8">
-            <CreateExamForm
-              initialExam={editingExam || undefined}
-              onSubmit={async (examData) => {
-                try {
-                  if (editingExam) {
-                    // update
-                    console.log('[DASHBOARD] Updating exam:', editingExam.id);
-                    await api.putExam(editingExam.id as any, examData);
-                    const examsData = await api.getExams();
-                    setExams(examsData);
-                    setEditingExam(null);
-                    setShowCreateForm(false);
-                  } else {
-                    console.log('[DASHBOARD] Creating new exam');
-                    await handleCreateExam(examData);
-                  }
-                } catch (error) {
-                  console.error('[DASHBOARD] Form submission error:', error);
-                  throw error;
-                }
+      {isOpen && (
+        <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+          <div className="px-5 py-4 border-b border-slate-50 mb-1">
+            <p className="text-sm font-black text-slate-900 leading-tight">Профессор Разумов</p>
+            <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.1em] mt-0.5">Главный администратор</p>
+          </div>
+          
+          <div className="px-2 space-y-0.5">
+            <button 
+              onClick={() => { notify("Загрузка профиля..."); setIsOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-orange-600 rounded-xl transition-all font-semibold"
+            >
+              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white transition-colors">
+                <User className="w-4 h-4" />
+              </div>
+              Профиль
+            </button>
+            
+            <button 
+              onClick={() => { notify("Настройки системы..."); setIsOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-orange-600 rounded-xl transition-all font-semibold"
+            >
+              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                <Settings className="w-4 h-4" />
+              </div>
+              Настройки
+            </button>
+          </div>
+          
+          <div className="my-2 border-t border-slate-50 mx-4"></div>
+          
+          <div className="px-2">
+            <button 
+              onClick={() => {
+                notify("Выход из системы...");
+                setIsOpen(false);
+                onLogout?.();
               }}
-              onCancel={() => { setEditingExam(null); setShowCreateForm(false); }}
-            />
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-all font-black uppercase tracking-wider"
+            >
+              <div className="w-8 h-8 rounded-lg bg-red-50/50 flex items-center justify-center text-red-400">
+                <LogOut className="w-4 h-4" />
+              </div>
+              Выход
+            </button>
           </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-slate-700">
-          <button
-            onClick={() => setActiveTab('exams')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'exams'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z" />
-              </svg>
-              My Exams ({exams.length})
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('results')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'results'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Results
-            </span>
-          </button>
         </div>
-
-        {/* Content */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block">
-              <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
-            </div>
-          </div>
-        ) : activeTab === 'exams' ? (
-          // Exams Grid
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {exams.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-slate-800 rounded-xl border border-slate-700">
-                <p className="text-gray-400 mb-4">No exams created yet</p>
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="text-blue-400 hover:text-blue-300 font-medium"
-                >
-                  Create your first exam →
-                </button>
-              </div>
-            ) : (
-              exams.map((exam) => (
-                <div
-                  key={exam.id}
-                  className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-blue-500 transition-all hover:shadow-xl hover:shadow-blue-500/10 cursor-pointer group"
-                >
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
-                    {exam.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm mb-4">{exam.description}</p>
-                  <div className="space-y-2 mb-4 text-sm text-gray-400">
-                    <p>⏱️ Duration: {exam.duration_minutes} minutes</p>
-                    <p>❓ Questions: {exam.questions.length}</p>
-                    <p>📅 Created: {new Date(exam.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <button className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors">
-                    View Details
-                  </button>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const email = prompt('Enter student email to assign this exam:');
-                        if (!email) return;
-                        try {
-                          await api.assignExam(exam.id as any, { student_email: email });
-                          alert('Assigned successfully');
-                        } catch (err) {
-                          console.error(err);
-                          alert('Assign failed');
-                        }
-                      }}
-                      className="px-3 py-2 bg-emerald-600 text-white rounded-md text-sm"
-                    >
-                      Assign
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingExam(exam);
-                        setShowCreateForm(true);
-                      }}
-                      className="px-3 py-2 bg-yellow-600 text-white rounded-md text-sm"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : activeTab === 'results' ? (
-          // Results Table
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-700 border-b border-slate-600">
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-300">Student</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-300">Exam</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-300">Score</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-300">Violations</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-300">Date</th>
-                    <th className="px-6 py-3 text-center text-sm font-medium text-gray-300">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                        No exam results yet
-                      </td>
-                    </tr>
-                  ) : (
-                    sessions.map((session) => (
-                      <tr key={session.id} className="border-b border-slate-700 hover:bg-slate-700 transition-colors">
-                        <td className="px-6 py-4 text-white">{session.student_id}</td>
-                        <td className="px-6 py-4 text-white">{session.exam_id}</td>
-                        <td className="px-6 py-4 text-white font-semibold">{session.score || '—'}%</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            session.violations.length === 0
-                              ? 'bg-green-900/20 text-green-400'
-                              : 'bg-red-900/20 text-red-400'
-                          }`}>
-                            {session.violations.length}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-400 text-sm">
-                          {new Date(session.started_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={() => setSelectedSession(session)}
-                            className="text-blue-400 hover:text-blue-300 font-medium"
-                          >
-                            Review
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          // Assignments view
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Assignments</h3>
-            {assignments.length === 0 ? (
-              <div className="text-gray-400">No assignments yet</div>
-            ) : (
-              <div className="space-y-4">
-                {assignments.map((a) => (
-                  <div key={a.id} className="p-4 bg-slate-700 rounded-md flex items-center justify-between">
-                    <div>
-                      <div className="text-white font-medium">{a.exam_title || `Exam ${a.exam_id}`}</div>
-                      <div className="text-sm text-gray-400">Student: {a.student_email || a.student_id}</div>
-                      <div className="text-sm text-gray-400">Assigned: {a.assigned_at || '—'}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={async () => {
-                          if (!confirm('Unassign this exam from student?')) return;
-                          try {
-                            await api.deleteAssignment(a.id);
-                            const newList = await api.getAssignments();
-                            setAssignments(newList);
-                          } catch (err) {
-                            console.error(err);
-                            alert('Failed to unassign');
-                          }
-                        }}
-                        className="px-3 py-2 bg-red-600 text-white rounded-md text-sm"
-                      >
-                        Unassign
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
+
+// Helper function to get avatar initials
+const getAvatarInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+};
+
+export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout: _onLogout }) => {
+  const [activeTab, setActiveTab] = useState('proctoring');
+  const [students, setStudents] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [monitoringGroup, setMonitoringGroup] = useState('Все');
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+
+  const refreshStudents = async () => {
+    const studentsData = await api.getDashboardStudents().catch(() => []);
+    setStudents(studentsData || []);
+    if (studentsData && studentsData.length > 0 && !selectedStudent) {
+      setSelectedStudent(studentsData[0]);
+    }
+  };
+
+  const refreshSessions = async (studentId?: number) => {
+    if (studentId) {
+      const studentSessions = await api.getStudentSessions(studentId).catch(() => []);
+      setSessions(studentSessions || []);
+      return;
+    }
+    const sessionsData = await api.getDashboardSessions().catch(() => []);
+    setSessions(sessionsData || []);
+  };
+
+  const loadDashboardData = async () => {
+    try {
+      const [studentsData, sessionsData] = await Promise.all([
+        api.getDashboardStudents().catch(() => []),
+        api.getDashboardSessions().catch(() => [])
+      ]);
+      setStudents(studentsData || []);
+      setSessions(sessionsData || []);
+      if (studentsData && studentsData.length > 0) {
+        setSelectedStudent(studentsData[0]);
+      }
+      setQuestions([
+        { id: 'q1', text: 'Что такое замыкание в JavaScript?', type: 'Теория', difficulty: 'Средне' },
+        { id: 'q2', text: 'Объясните разницу между let, const и var.', type: 'Основы', difficulty: 'Легко' }
+      ]);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      notify('Ошибка при загрузке данных');
+    }
+  };
+
+  // Load data from MySQL via API
+  useEffect(() => {
+    const load = async () => {
+      try {
+        await loadDashboardData();
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        notify('Ошибка при загрузке данных');
+      }
+    };
+    
+    load();
+  }, []);
+
+  const notify = (msg: string) => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, msg }]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
+  };
+
+  const exportViolationsCsv = (student: any, allSessions: any[]) => {
+    if (!student) {
+      notify('Выберите студента');
+      return;
+    }
+    const studentSessions = allSessions.filter((s: any) => s.student_id === student.id);
+    const violations = studentSessions.flatMap((s: any) => s.violations || []);
+    if (violations.length === 0) {
+      notify('Нет данных для экспорта');
+      return;
+    }
+    const header = ['id', 'type', 'timestamp', 'severity_score', 'confidence'];
+    const rows = violations.map((v: any) => [v.id, v.type, v.timestamp, v.severity_score, v.confidence]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `violations_${student.id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify('Экспорт выполнен');
+  };
+
+  const createStudent = async (payload: { email: string; full_name?: string; name?: string; password?: string; group?: string; }) => {
+    await api.createDashboardStudent(payload);
+    await refreshStudents();
+  };
+
+  const deleteStudent = async (studentId: number) => {
+    await api.deleteDashboardStudent(studentId);
+    await refreshStudents();
+  };
+
+  const importStudents = async (studentsList: Array<{ email: string; full_name?: string; name?: string; password?: string; group?: string; }>) => {
+    await api.importDashboardStudents(studentsList);
+    await refreshStudents();
+  };
+
+  // Уникальные группы
+  const allGroups = useMemo((): string[] => {
+    const groups = students
+      .map(s => (s.group || 'Без группы'))
+      .filter(Boolean);
+    return ['Все', ...Array.from(new Set(groups))];
+  }, [students]);
+
+  // Фильтрация студентов для боковой панели
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => {
+      const searchTerm = searchQuery.toLowerCase();
+      const name = (s.full_name || s.name || '').toLowerCase();
+      const email = (s.email || '').toLowerCase();
+      const id = (s.id?.toString() || '').toLowerCase();
+      
+      const matchesSearch = name.includes(searchTerm) || 
+                            email.includes(searchTerm) ||
+                            id.includes(searchTerm);
+      
+      const studentGroup = s.group || 'Без группы';
+      const matchesGroup = monitoringGroup === 'Все' || studentGroup === monitoringGroup;
+      
+      return matchesSearch && matchesGroup;
+    });
+  }, [students, searchQuery, monitoringGroup]);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'proctoring':
+        return (
+          <ProctoringView
+            student={selectedStudent}
+            sessions={sessions}
+            notify={notify}
+            onRefresh={() => selectedStudent?.id && refreshSessions(selectedStudent.id)}
+            onExport={() => exportViolationsCsv(selectedStudent, sessions)}
+            onLogout={_onLogout}
+          />
+        );
+      case 'students':
+        return (
+          <StudentsManagementView
+            students={students}
+            notify={notify}
+            onCreate={createStudent}
+            onDelete={deleteStudent}
+            onImport={importStudents}
+            onLogout={_onLogout}
+          />
+        );
+      case 'questions':
+        return <QuestionsBankView questions={questions} setQuestions={setQuestions} notify={notify} onLogout={_onLogout} />;
+      case 'assignments':
+        return <TestAssignmentView students={students} notify={notify} onLogout={_onLogout} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
+        {notifications.map(n => (
+          <div key={n.id} className="bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm font-medium animate-in fade-in slide-in-from-bottom-4">
+            {n.msg}
+          </div>
+        ))}
+      </div>
+
+      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm shrink-0 relative z-50">
+        <div className="p-6 border-b border-slate-200 bg-white">
+          <div className="flex items-center gap-3">
+            <OpenProctorLogo className="w-10 h-10 text-slate-800" />
+            <div>
+              <h1 className="font-bold text-lg tracking-tight text-slate-800 flex items-baseline leading-none">
+                OpenProctor<span className="text-orange-500 ml-0.5">AI</span>
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-hide">
+          <NavButton 
+            active={activeTab === 'proctoring'} 
+            onClick={() => setActiveTab('proctoring')} 
+            icon={<Monitor className="w-5 h-5" />} 
+            label="Мониторинг" 
+          />
+          <NavButton 
+            active={activeTab === 'students'} 
+            onClick={() => setActiveTab('students')} 
+            icon={<Users className="w-5 h-5" />} 
+            label="Студенты" 
+          />
+          <NavButton 
+            active={activeTab === 'questions'} 
+            onClick={() => setActiveTab('questions')} 
+            icon={<BookOpen className="w-5 h-5" />} 
+            label="Банк вопросов" 
+          />
+          <NavButton 
+            active={activeTab === 'assignments'} 
+            onClick={() => setActiveTab('assignments')} 
+            icon={<Send className="w-5 h-5" />} 
+            label="Назначение" 
+          />
+
+          {activeTab === 'proctoring' && (
+            <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+              <div className="px-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Участники сессии</p>
+                
+                {/* Выбор группы в мониторинге */}
+                <div className="relative mb-3 group">
+                  <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <select 
+                    value={monitoringGroup}
+                    onChange={(e) => setMonitoringGroup(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-black uppercase tracking-tight appearance-none outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200 transition-all cursor-pointer"
+                  >
+                    {allGroups.map(g => (
+                      <option key={g} value={g}>{g === 'Все' ? 'Все группы' : g}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <ChevronRight className="w-3 h-3 text-slate-300 rotate-90" />
+                  </div>
+                </div>
+
+                {/* Поиск */}
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="Поиск по имени/ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                {filteredStudents.length > 0 ? filteredStudents.map(s => (
+                  <button 
+                    key={s.id}
+                    onClick={() => setSelectedStudent(s)}
+                    className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all text-left ${selectedStudent?.id === s.id ? 'bg-orange-50 text-orange-700 shadow-sm' : 'hover:bg-slate-50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0">{getAvatarInitials(s.full_name || s.name || 'Student')}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate">{s.full_name || s.name || 'Student'}</p>
+                      <div className="flex justify-between items-center mt-0.5">
+                        <p className="text-[9px] text-slate-400 truncate font-black">{s.id}</p>
+                        <p className="text-[9px] text-indigo-500 font-black">{s.group || 'Без группы'}</p>
+                      </div>
+                    </div>
+                  </button>
+                )) : (
+                  <p className="px-2 text-[10px] text-slate-400 font-medium italic">Студенты не найдены</p>
+                )}
+              </div>
+            </div>
+          )}
+        </nav>
+      </aside>
+
+      <main className="flex-1 flex flex-col overflow-hidden relative z-0">
+        {renderContent()}
+      </main>
+    </div>
+  );
+};
+
+function ProctoringView({ student, sessions, notify, onRefresh, onExport, onLogout }: any) {
+  if (!student) return (
+    <div className="flex-1 flex items-center justify-center bg-slate-50">
+      <p className="text-slate-400 font-bold">Выберите студента для мониторинга</p>
+    </div>
+  );
+  
+  // Get latest session for this student
+  const studentSessions = sessions.filter((s: any) => s.student_id === student.id);
+  const violations = studentSessions.length > 0 
+    ? studentSessions[0].violations || []
+    : [];
+  
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-white">
+      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white/90 backdrop-blur sticky top-0 z-40">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{student.full_name || student.name || 'Student'}</h2>
+            <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">{student.group || 'Без группы'}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+            <span className="flex items-center gap-1"><Fingerprint className="w-3.5 h-3.5" /> {student.id}</span>
+            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+            <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {student.email}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={onRefresh}
+            className="px-5 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95"
+          >
+            <Eye className="w-3.5 h-3.5" /> Live
+          </button>
+          <div className="h-8 w-px bg-slate-200"></div>
+          <ProfileMenu notify={notify} onLogout={onLogout} />
+        </div>
+      </header>
+      <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50 scroll-smooth">
+        <div className="aspect-video bg-slate-950 rounded-3xl relative flex items-center justify-center shadow-2xl border border-slate-900 overflow-hidden ring-1 ring-slate-800">
+           <Play className="w-16 h-16 text-white/5 animate-pulse" />
+           <div className="absolute top-6 left-6 flex items-center gap-2 bg-red-600 text-white text-[9px] px-3 py-1 rounded-full font-black tracking-widest shadow-lg animate-pulse">
+             <div className="w-1.5 h-1.5 bg-white rounded-full" /> LIVE STREAMING
+           </div>
+           <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-white/80 font-mono tracking-tighter">
+             CAM_ID: 0824-A // ENCRYPTION: AES-256
+           </div>
+        </div>
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+           <div className="flex items-center justify-between mb-8">
+             <h3 className="font-black text-lg flex items-center gap-3 text-slate-800 tracking-tight">
+               <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
+                 <AlertTriangle className="w-5 h-5" />
+               </div>
+               Журнал инцидентов AI
+             </h3>
+             <button
+               onClick={onExport}
+               className="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest border-b-2 border-indigo-100 pb-0.5"
+             >
+               Экспорт истории
+             </button>
+           </div>
+           <table className="w-full text-sm text-left border-separate border-spacing-y-2">
+              <thead>
+                <tr className="text-slate-400 uppercase text-[9px] font-black tracking-[0.2em] px-4">
+                  <th className="pb-4 pl-4">Тип аномалии</th>
+                  <th className="pb-4">Метка времени</th>
+                  <th className="pb-4 text-right pr-4">Вердикт AI</th>
+                </tr>
+              </thead>
+              <tbody className="space-y-2">
+                {violations.length > 0 ? violations.map((v: any) => (
+                  <tr key={v.id} className="bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                    <td className="py-4 pl-4 rounded-l-xl font-bold text-slate-700 text-sm">{v.type}</td>
+                    <td className="py-4 font-mono text-[11px] text-slate-400 font-bold">{v.timestamp || 'N/A'}</td>
+                    <td className="py-4 text-right pr-4 rounded-r-xl">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                        v.severity_score && v.severity_score > 70 
+                          ? 'bg-red-50 text-red-600 border-red-100' 
+                          : 'bg-yellow-50 text-yellow-600 border-yellow-100'
+                      }`}>
+                        {v.severity_score && v.severity_score > 70 ? 'Высокий риск' : 'Проверить'}
+                      </span>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={3} className="py-12 text-center text-slate-400 font-bold text-sm bg-slate-50/30 rounded-3xl border-2 border-dashed border-slate-100">Нарушений в текущей сессии не выявлено</td></tr>
+                )}
+              </tbody>
+           </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentsManagementView({ students, notify, onCreate, onDelete, onImport, onLogout }: any) {
+  const [newStudent, setNewStudent] = useState({ id: '', name: '', email: '', password: '', group: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generatePassword = () => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+    let retVal = "";
+    for (let i = 0, n = charset.length; i < 8; ++i) {
+      retVal += charset.charAt(Math.floor(Math.random() * n));
+    }
+    setNewStudent(prev => ({ ...prev, password: retVal }));
+    notify("Новый пароль сгенерирован");
+  };
+
+  const addStudent = async () => {
+    if (!newStudent.name || !newStudent.email) {
+      notify("Пожалуйста, заполните обязательные поля");
+      return;
+    }
+    try {
+      await onCreate({
+        email: newStudent.email,
+        full_name: newStudent.name,
+        password: newStudent.password,
+        group: newStudent.group
+      });
+      setNewStudent({ id: '', name: '', email: '', password: '', group: '' });
+      notify(`Студент ${newStudent.name} успешно зарегистрирован`);
+    } catch (error) {
+      notify('Ошибка при создании студента');
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) {
+      notify('Файл пустой');
+      return;
+    }
+
+    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const hasHeader = header.includes('email') || header.includes('full_name') || header.includes('name');
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    const studentsToImport = dataLines.map((line) => {
+      const cols = line.split(',').map(c => c.trim());
+      if (hasHeader) {
+        const obj: any = {};
+        header.forEach((h, i) => { obj[h] = cols[i]; });
+        return {
+          email: obj.email,
+          full_name: obj.full_name || obj.name,
+          password: obj.password,
+          group: obj.group
+        };
+      }
+      return {
+        email: cols[0],
+        full_name: cols[1],
+        password: cols[2],
+        group: cols[3]
+      };
+    }).filter(s => s.email);
+
+    if (studentsToImport.length === 0) {
+      notify('Нет валидных строк для импорта');
+      return;
+    }
+
+    try {
+      await onImport(studentsToImport);
+      notify(`Импортировано: ${studentsToImport.length}`);
+    } catch (error) {
+      notify('Ошибка при импорте');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">База студентов</h2>
+        <ProfileMenu notify={notify} onLogout={onLogout} />
+      </header>
+      
+      <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest">Новая запись</h3>
+            <button
+              onClick={handleImportClick}
+              className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95"
+            >
+              <FileUp className="w-4 h-4" /> Массовый импорт
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+          </div>
+
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Студента</label>
+                <div className="relative group">
+                  <Fingerprint className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <input placeholder="ID-0000" className="w-full pl-11 pr-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/20 outline-none transition-all" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ФИО Участника</label>
+                <input placeholder="Имя Фамилия" className="w-full px-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Группа</label>
+                <div className="relative">
+                  <Layers className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input placeholder="Напр. Группа-А" className="w-full pl-11 pr-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.group} onChange={e => setNewStudent({...newStudent, group: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Эл. почта</label>
+                <input placeholder="email@uni.edu" className="w-full px-4 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all" value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Пароль доступа</label>
+                <div className="relative">
+                  <input placeholder="********" className="w-full pl-4 pr-12 py-3.5 border border-slate-100 rounded-2xl bg-slate-50 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-mono" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
+                  <button onClick={generatePassword} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button onClick={addStudent} className="w-full bg-slate-900 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-[0.99]">
+              <Plus className="w-4 h-4" /> Зарегистрировать в OpenProctorAI
+            </button>
+          </div>
+
+          <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                <tr>
+                  <th className="px-8 py-6 text-center w-24">Аватар</th>
+                  <th className="px-4 py-6">ID & ФИО</th>
+                  <th className="px-8 py-6">Группа</th>
+                  <th className="px-8 py-6">Безопасность</th>
+                  <th className="px-8 py-6 text-right">Опции</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {students.map((s: any) => (
+                  <tr key={s.id} className="hover:bg-slate-50/30 transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xs font-black mx-auto shadow-sm ring-4 ring-white">{getAvatarInitials(s.full_name || s.name || 'S')}</div>
+                    </td>
+                    <td className="px-4 py-5">
+                      <p className="font-black text-slate-900 text-sm tracking-tight">{s.full_name || s.name || 'Student'}</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{s.id}</p>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-200">{s.group || 'Без группы'}</span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <code className="bg-slate-50 px-3 py-1.5 rounded-lg text-[11px] font-mono text-slate-500 font-bold border border-slate-200 tracking-tighter shadow-inner">{s.password || '******'}</code>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(s.password || '');
+                              notify("Пароль скопирован");
+                            } catch {
+                              notify("Не удалось скопировать");
+                            }
+                          }}
+                          className="text-slate-300 hover:text-orange-600 transition-colors active:scale-90 p-1"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await onDelete(Number(s.id));
+                            notify('Студент удален');
+                          } catch {
+                            notify('Ошибка удаления');
+                          }
+                        }}
+                        className="text-slate-300 hover:text-red-500 transition-all p-2 rounded-xl hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuestionsBankView({ questions, setQuestions, notify, onLogout }: any) {
+  const [newQ, setNewQ] = useState({ text: '', difficulty: 'Средне' });
+  const addQ = () => {
+    if (!newQ.text) return;
+    setQuestions([...questions, { id: Date.now().toString(), text: newQ.text, difficulty: newQ.difficulty, type: 'Тест' }]);
+    setNewQ({ text: '', difficulty: 'Средне' });
+    notify("Новый вопрос добавлен в базу");
+  };
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Банк вопросов</h2>
+        <ProfileMenu notify={notify} onLogout={onLogout} />
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6 text-left relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 text-slate-50">
+              <BookOpen className="w-24 h-24 rotate-12" />
+            </div>
+            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs relative">Конструктор вопроса</h3>
+            <textarea placeholder="Сформулируйте ваш вопрос здесь..." className="w-full p-6 border border-slate-100 rounded-[1.5rem] h-32 bg-slate-50 focus:bg-white outline-none focus:ring-4 focus:ring-orange-500/10 transition-all text-sm font-semibold relative" value={newQ.text} onChange={e => setNewQ({...newQ, text: e.target.value})} />
+            <div className="flex justify-between items-center relative">
+               <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Сложность:</span>
+                  <select className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 cursor-pointer" value={newQ.difficulty} onChange={e => setNewQ({...newQ, difficulty: e.target.value})}>
+                     <option>Легко</option>
+                     <option>Средне</option>
+                     <option>Сложно</option>
+                  </select>
+               </div>
+               <button onClick={addQ} className="bg-orange-500 text-white px-10 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95">Сохранить</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            {questions.map((q: any) => (
+              <div key={q.id} className="bg-white p-6 rounded-[1.5rem] border border-slate-200 shadow-sm flex justify-between items-start text-left group hover:border-orange-500/30 transition-all">
+                <div className="space-y-3">
+                   <div className="flex items-center gap-3">
+                      <span className="bg-slate-900 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">{q.difficulty}</span>
+                   </div>
+                   <p className="font-black text-slate-800 leading-tight text-sm pr-4 tracking-tight">{q.text}</p>
+                </div>
+                <button onClick={() => setQuestions(questions.filter((x: any) => x.id !== q.id))} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-2 transition-all"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TestAssignmentView({ students, notify, onLogout }: any) {
+  const [selectedGroup, setSelectedGroup] = useState('Все');
+  const [timeLimit, setTimeLimit] = useState(60);
+  const [proctoringEnabled, setProctoringEnabled] = useState(true);
+
+  const uniqueGroups: string[] = Array.from(new Set(students.map((s: any) => s.group as string)));
+  const groups: string[] = ['Все', ...uniqueGroups];
+  const filtered = students.filter((s: any) => selectedGroup === 'Все' || s.group === selectedGroup);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+      <header className="px-8 py-5 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-40">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Назначение тестов</h2>
+        <ProfileMenu notify={notify} onLogout={onLogout} />
+      </header>
+
+       <div className="flex-1 overflow-y-auto p-8">
+         <div className="max-w-6xl mx-auto space-y-8">
+            <div className="flex justify-between items-end">
+               <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Параметры сессии</p>
+               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Фильтр группы:</span>
+                  <select className="text-xs font-black border-none bg-transparent focus:ring-0 cursor-pointer" value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}>
+                     {groups.map((g: string) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+               </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+               <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
+                  <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-slate-800 mb-8 border-b border-slate-50 pb-4">
+                    <CheckSquare className="w-5 h-5 text-orange-500"/> Список студентов ({filtered.length})
+                  </h3>
+                  <div className="space-y-2 max-h-[460px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-slate-100">
+                     {filtered.map((s: any) => (
+                       <div key={s.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                          <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 text-orange-500 focus:ring-orange-500 cursor-pointer" defaultChecked />
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-sm text-slate-800 truncate">{s.name}</span>
+                            <div className="flex gap-2 items-center">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{s.id}</span>
+                              <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{s.group}</span>
+                            </div>
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+
+               <div className="space-y-6">
+                 <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm space-y-8 relative overflow-hidden">
+                    <div className="absolute -top-10 -right-10 opacity-5">
+                      <Settings className="w-40 h-40" />
+                    </div>
+                    <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-slate-800 relative"><Settings className="w-5 h-5 text-orange-500"/> Настройки экзамена</h3>
+                    
+                    <div className="space-y-8 relative">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Выберите пакет вопросов</label>
+                        <select className="w-full p-4 rounded-2xl text-sm font-bold bg-slate-50 border border-slate-100 outline-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer">
+                           <option>ИТ-01: Комплексная сертификация JS</option>
+                           <option>ИТ-02: Основы системного администрирования</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5" /> Лимит времени: <span className="text-orange-500 font-black">{timeLimit} минут</span>
+                        </label>
+                        <div className="px-2">
+                          <input 
+                            type="range" min="5" max="180" step="5"
+                            value={timeLimit}
+                            onChange={(e) => setTimeLimit(parseInt(e.target.value))}
+                            className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-orange-500 shadow-inner"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                        <div className="space-y-1">
+                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                            <Monitor className="w-4 h-4 text-orange-500" /> Режим прокторинга
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-bold">Активный AI-мониторинг поведения</p>
+                        </div>
+                        <button 
+                          onClick={() => setProctoringEnabled(!proctoringEnabled)}
+                          className={`transition-all duration-300 focus:outline-none rounded-full ${proctoringEnabled ? 'text-orange-500 scale-110' : 'text-slate-300 scale-100'}`}
+                        >
+                          {proctoringEnabled ? <ToggleRight className="w-11 h-11" /> : <ToggleLeft className="w-11 h-11" />}
+                        </button>
+                      </div>
+                    </div>
+                 </div>
+
+                 <button 
+                    onClick={() => notify(`Сессия запущена. Лимит: ${timeLimit} мин.`)} 
+                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase tracking-[0.25em] text-[10px] shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                 >
+                   <Send className="w-4 h-4" /> Начать экзаменационную сессию
+                 </button>
+               </div>
+            </div>
+         </div>
+       </div>
+    </div>
+  );
+}
+
+function NavButton({ active, onClick, icon, label }: any) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all relative group ${
+        active 
+          ? 'bg-orange-50 text-orange-600 shadow-sm border border-orange-100/50' 
+          : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
+      }`}
+    >
+      <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+        {icon}
+      </div>
+      {label}
+      {active && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-orange-500 rounded-r-full shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+      )}
+    </button>
+  );
+}

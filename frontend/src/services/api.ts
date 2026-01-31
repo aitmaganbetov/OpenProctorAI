@@ -1,5 +1,5 @@
 // src/services/api.ts
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = '/api/v1';
 
 export interface ExamSession {
   id: string;
@@ -220,6 +220,42 @@ class ApiService {
     console.log('[API] Photo verification response:', result);
     return result;
   }
+
+  // Teacher Dashboard endpoints
+  async getDashboardStudents(): Promise<any[]> {
+    return this.get<any[]>('/exams/dashboard/students');
+  }
+
+  async createDashboardStudent(payload: { email: string; full_name?: string; name?: string; password?: string; group?: string; }): Promise<any> {
+    return this.post<any>('/exams/dashboard/students', payload);
+  }
+
+  async deleteDashboardStudent(studentId: number): Promise<any> {
+    const url = `${API_BASE_URL}/exams/dashboard/students/${studentId}`;
+    console.log('[API] DELETE request to:', url);
+    const response = await fetch(url, { method: 'DELETE' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Error response:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('[API] Response:', result);
+    return result;
+  }
+
+  async importDashboardStudents(students: Array<{ email: string; full_name?: string; name?: string; password?: string; group?: string; }>): Promise<any> {
+    return this.post<any>('/exams/dashboard/students/import', { students });
+  }
+
+  async getDashboardSessions(): Promise<any[]> {
+    return this.get<any[]>('/exams/dashboard/sessions');
+  }
+
+  async getStudentSessions(studentId: number): Promise<any[]> {
+    return this.get<any[]>(`/exams/dashboard/sessions/${studentId}`);
+  }
+
 }
 
 export default ApiService.getInstance();

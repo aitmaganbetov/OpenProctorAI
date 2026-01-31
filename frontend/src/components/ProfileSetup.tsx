@@ -1,15 +1,45 @@
 import React, { useRef, useState, useEffect } from 'react';
 import api from '../services/api';
+import LanguageSwitcher from './ui/LanguageSwitcher';
+import MirrorToggle from './ui/MirrorToggle';
+import ThemeToggle from './ui/ThemeToggle';
 
 interface ProfileSetupProps {
   studentId: number;
   onComplete: (profilePhotoBase64: string) => void;
 }
 
-export const ProfileSetup: React.FC<ProfileSetupProps> = ({
-  studentId,
-  onComplete,
-}) => {
+// Minimal translations (adapted for teacher UI)
+const translations: Record<string, Record<string, string>> = {
+  en: {
+    profileSetup: 'Profile Setup',
+    createProfile: 'Create Your Profile',
+    instructions: 'Take a clear photo of yourself. This will be used to verify your identity during exams.',
+    capture: 'Capture Photo',
+    retake: 'Retake',
+    save: 'Save Profile',
+    uploading: 'Uploading...',
+    saved: 'Profile photo saved',
+    initializing: 'Initializing camera...',
+    cameraError: 'Unable to access camera. Check permissions.',
+    privacy: 'Your profile photo is encrypted and stored securely for exam verification only',
+  },
+  ru: {
+    profileSetup: 'Настройка профиля',
+    createProfile: 'Создайте профиль',
+    instructions: 'Сфотографируйтесь. Фото будет использовано для проверки личности на экзамене.',
+    capture: 'Сделать фото',
+    retake: 'Повторить',
+    save: 'Сохранить профиль',
+    uploading: 'Загрузка...',
+    saved: 'Фото сохранено',
+    initializing: 'Инициализация камеры...',
+    cameraError: 'Невозможно получить доступ к камере. Проверьте разрешения.',
+    privacy: 'Ваше фото шифруется и хранится безопасно только для проверки на экзамене',
+  }
+};
+
+export const ProfileSetup: React.FC<ProfileSetupProps> = ({ studentId, onComplete }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -17,229 +47,145 @@ export const ProfileSetup: React.FC<ProfileSetupProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [lang, setLang] = useState<'en'|'ru'>('ru');
+  const [mirror, setMirror] = useState(true);
+
+  const t = (k: string) => translations[lang][k] || k;
 
   useEffect(() => {
+    let mounted = true;
     const startCamera = async () => {
       try {
-        console.log('[PROFILE] Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         });
-        console.log('[PROFILE] Camera stream obtained:', stream);
+        if (!mounted) return;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          console.log('[PROFILE] Video element connected to stream');
-          videoRef.current.onloadedmetadata = () => {
-            console.log('[PROFILE] Video metadata loaded');
-            setCameraActive(true);
-          };
+          videoRef.current.onloadedmetadata = () => setCameraActive(true);
         }
       } catch (err) {
-        const errorMessage = 'Unable to access camera. Please check permissions.';
-        setError(errorMessage);
-        console.error('[PROFILE] Camera error:', err);
+        console.error('[ProfileSetup] camera error', err);
+        setError(t('cameraError'));
       }
     };
 
     startCamera();
 
     return () => {
+      mounted = false;
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [lang]);
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) {
-      console.error('[PROFILE] Missing video or canvas reference');
-      return;
+    setError(null);
+    if (!videoRef.current || !canvasRef.current) return setError('Internal error');
+    const vw = videoRef.current.videoWidth;
+    const vh = videoRef.current.videoHeight;
+    if (vw === 0 || vh === 0) return setError(t('initializing'));
+
+    canvasRef.current.width = vw;
+    canvasRef.current.height = vh;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return setError('Canvas not available');
+
+    if (mirror) {
+      ctx.translate(vw, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoRef.current, 0, 0, vw, vh);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    } else {
+      ctx.drawImage(videoRef.current, 0, 0, vw, vh);
     }
 
-    const context = canvasRef.current.getContext('2d');
-    if (!context) {
-      console.error('[PROFILE] Could not get canvas context');
-      return;
-    }
-
-    const videoWidth = videoRef.current.videoWidth;
-    const videoHeight = videoRef.current.videoHeight;
-
-    console.log('[PROFILE] Video dimensions:', { videoWidth, videoHeight });
-
-    if (videoWidth === 0 || videoHeight === 0) {
-      setError('Camera is still loading. Please wait a moment and try again.');
-      return;
-    }
-
-    canvasRef.current.width = videoWidth;
-    canvasRef.current.height = videoHeight;
-    context.drawImage(videoRef.current, 0, 0);
-
-    const photoData = canvasRef.current.toDataURL('image/jpeg', 0.9);
-    console.log('[PROFILE] Photo captured, data URL length:', photoData.length);
-    setCapturedPhoto(photoData);
+    const data = canvasRef.current.toDataURL('image/jpeg', 0.9);
+    setCapturedPhoto(data);
   };
 
   const submitPhoto = async () => {
-    if (!capturedPhoto) {
-      setError('Please capture a photo first');
-      return;
-    }
-
+    if (!capturedPhoto) return setError('No photo');
     setLoading(true);
     setError(null);
-
     try {
-      // Convert data URL to base64 string
-      const base64String = capturedPhoto.split(',')[1];
-
-      console.log('[PROFILE] Uploading profile photo for student:', studentId);
-      await api.uploadStudentPhoto(studentId, base64String);
-
-      console.log('[PROFILE] Profile photo uploaded successfully');
+      const base64 = capturedPhoto.split(',')[1];
+      await api.uploadStudentPhoto(studentId, base64);
       setUploadSuccess(true);
-
-      // Show success message for 2 seconds, then proceed
-      setTimeout(() => {
-        onComplete(base64String);
-      }, 2000);
+      setTimeout(() => onComplete(base64), 1400);
     } catch (err: any) {
-      console.error('[PROFILE] Upload failed:', err);
-      setError(err.message || 'Failed to upload profile photo');
+      console.error('[ProfileSetup] upload', err);
+      setError(err?.message || 'Upload failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const retakePhoto = () => {
+  const retake = () => {
     setCapturedPhoto(null);
-    setCameraActive(true);
     setUploadSuccess(false);
+    setError(null);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
-      <div className="w-full max-w-2xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-block px-4 py-2 bg-amber-900/30 border border-amber-700 rounded-full mb-4">
-            <p className="text-amber-400 text-sm font-medium">👤 Profile Setup</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+      <div className="max-w-6xl mx-auto">
+        <header className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">{t('createProfile')}</h1>
+            <p className="text-gray-400">{t('instructions')}</p>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Create Your Profile</h1>
-          <p className="text-gray-400">
-            Take a clear photo of yourself. This will be used to verify your identity during exams.
-          </p>
-        </div>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher lang={lang} setLang={(l) => setLang(l as 'ru'|'en')} isDark />
+            <MirrorToggle mirror={mirror} setMirror={setMirror} />
+            <ThemeToggle isDark={false} setIsDark={() => {}} />
+          </div>
+        </header>
 
-        {/* Camera/Photo Display */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-6">
-          {/* Hidden canvas */}
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-          {!capturedPhoto ? (
-            <div className="relative">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-96 object-cover bg-black"
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm">
+            <div className="bg-black rounded-xl overflow-hidden relative">
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              {!capturedPhoto ? (
+                <video ref={videoRef} autoPlay playsInline muted className={`w-full h-96 object-cover ${mirror ? 'scale-x-[-1]' : ''}`} />
+              ) : (
+                <img src={capturedPhoto} alt="captured" className="w-full h-96 object-cover" />
+              )}
               {!cameraActive && (
-                <div className="absolute inset-0 bg-black flex items-center justify-center">
-                  <p className="text-white text-center">Initializing camera...</p>
-                </div>
+                <div className="absolute inset-0 flex items-center justify-center text-white bg-black/50">{t('initializing')}</div>
               )}
             </div>
-          ) : (
-            <div className="w-full h-96 bg-black" />
-          )}
 
-          {/* Captured Photo Display */}
-          {capturedPhoto && (
-            <img
-              src={capturedPhoto}
-              alt="Profile Photo"
-              className="w-full h-96 object-cover"
-            />
-          )}
-        </div>
+            <div className="mt-4 flex items-center gap-3">
+              {!capturedPhoto ? (
+                <button onClick={capturePhoto} disabled={!cameraActive || loading} className="px-5 py-3 bg-orange-500 text-white rounded-lg font-bold disabled:opacity-50">{t('capture')}</button>
+              ) : (
+                <>
+                  <button onClick={retake} disabled={loading || uploadSuccess} className="px-4 py-2 bg-slate-800 text-white rounded-lg border border-slate-700">{t('retake')}</button>
+                  <button onClick={submitPhoto} disabled={loading || uploadSuccess} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold">
+                    {loading ? t('uploading') : uploadSuccess ? t('saved') : t('save')}
+                  </button>
+                </>
+              )}
+            </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/20 border border-red-700 rounded-lg">
-            <p className="text-red-400">{error}</p>
+            {error && <div className="mt-4 p-3 bg-red-900/20 text-red-400 rounded-lg">{error}</div>}
+            {uploadSuccess && <div className="mt-4 p-3 bg-emerald-900/20 text-emerald-300 rounded-lg">{t('saved')}</div>}
           </div>
-        )}
 
-        {/* Success Message */}
-        {uploadSuccess && (
-          <div className="mb-6 p-4 bg-green-900/20 border border-green-700 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">✅</div>
-              <div>
-                <p className="text-green-400 font-medium">Profile photo saved successfully!</p>
-                <p className="text-sm text-green-300">Proceeding to exam selection...</p>
+          <aside className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-sm text-slate-300">
+            <h3 className="font-black mb-3 text-white">{t('profileSetup')}</h3>
+            <p className="text-sm text-slate-400 mb-4">{t('privacy')}</p>
+            <div className="flex flex-col gap-2">
+              <div className="text-xs text-slate-400">Student ID</div>
+              <div className="font-mono text-sm text-white p-2 bg-slate-800 rounded">{studentId}</div>
+              <div className="mt-4">
+                <button onClick={() => { if (capturedPhoto) navigator.clipboard.writeText(capturedPhoto); }} className="w-full py-2 rounded-lg border border-slate-700">Copy Preview Data</button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Instructions */}
-        {!capturedPhoto && (
-          <div className="mb-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-            <p className="text-blue-300 text-center">
-              📷 Make sure you're in a well-lit area with your face clearly visible
-            </p>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-4 justify-center">
-          {!capturedPhoto ? (
-            <button
-              onClick={capturePhoto}
-              disabled={!cameraActive || loading}
-              className="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-medium rounded-lg hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              📸 Capture Photo
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={retakePhoto}
-                disabled={loading || uploadSuccess}
-                className="px-6 py-3 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Retake
-              </button>
-              <button
-                onClick={submitPhoto}
-                disabled={loading || uploadSuccess}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {loading ? (
-                  <>
-                    <span className="animate-spin inline-block mr-2">⏳</span>
-                    Uploading...
-                  </>
-                ) : uploadSuccess ? (
-                  '✓ Profile Saved'
-                ) : (
-                  '✓ Save Profile'
-                )}
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Privacy Notice */}
-        <div className="mt-8 p-4 bg-slate-700/50 rounded-lg border border-slate-600 text-center">
-          <p className="text-sm text-gray-400">
-            🔒 Your profile photo is encrypted and stored securely for exam verification only
-          </p>
+          </aside>
         </div>
       </div>
     </div>
