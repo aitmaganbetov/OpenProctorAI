@@ -940,15 +940,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
   }, []);
 
   const startAudioMonitor = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      console.warn('getUserMedia not supported');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       audioStreamRef.current = stream;
       const context = new AudioContext();
+      // Resume AudioContext if suspended (browser autoplay policy)
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
       audioContextRef.current = context;
       const source = context.createMediaStreamSource(stream);
       const analyser = context.createAnalyser();
-      analyser.fftSize = 2048;
+      analyser.fftSize = 512; // Smaller FFT for faster response
+      analyser.smoothingTimeConstant = 0.3; // Less smoothing for faster detection
       source.connect(analyser);
       audioAnalyserRef.current = analyser;
 
@@ -956,6 +964,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
       audioMonitorTimerRef.current = window.setInterval(async () => {
         const node = audioAnalyserRef.current;
         if (!node) return;
+        
+        // Ensure context is still running
+        if (audioContextRef.current?.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+        
         node.getByteTimeDomainData(data);
         let sum = 0;
         for (let i = 0; i < data.length; i += 1) {
@@ -964,28 +978,36 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         }
         const rms = Math.sqrt(sum / data.length);
         setNoiseLevel(rms);
-        const isNoisy = rms > 0.055;
+        
+        // Threshold 0.025 - sensitive to whispers and voice, ignores most fan noise
+        const isNoisy = rms > 0.025;
         setNoiseStatus(isNoisy ? 'noisy' : 'quiet');
+        
         if (isNoisy) {
           const now = Date.now();
-          if (now - lastNoiseAtRef.current > 8000) {
+          // Log violation every 5 seconds if noise persists
+          if (now - lastNoiseAtRef.current > 5000) {
             lastNoiseAtRef.current = now;
             setWarning(true);
-            setWarningMessage('Обнаружен посторонний шум');
+            setWarningMessage('🔊 Обнаружен посторонний шум или голос');
+            console.log('Noise detected! RMS:', rms);
             if (effectiveStudentId) {
               void logViolation({
                 violation_type: 'voice_detected',
                 timestamp: new Date().toISOString(),
-                confidence: 0.6,
+                confidence: 0.7,
+                severity_score: 60,
                 student_id: effectiveStudentId,
                 exam_id: activeExamId,
               });
             }
           }
         }
-      }, 700);
-    } catch {
-      // ignore mic permission errors
+      }, 500); // Check every 500ms for faster detection
+      
+      console.log('Audio monitor started successfully');
+    } catch (err) {
+      console.error('Audio monitor error:', err);
     }
   }, [activeExamId, effectiveStudentId, logViolation]);
 
@@ -1384,9 +1406,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         image.onerror = () => reject(new Error('Image load failed'));
         image.src = snapshotBase64;
       });
+      // Lower threshold (0.3) for more sensitive detection of additional faces
       const detections = await faceapi.detectAllFaces(
         img,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })
       );
       return detections.length > 1;
     } catch {
@@ -1752,14 +1775,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout }) 
         const multipleFaces = await detectMultipleFaces(snapshot);
         if (multipleFaces) {
           setWarning(true);
-          setWarningMessage('Обнаружено несколько лиц');
+          setWarningMessage('⚠️ ВНИМАНИЕ: Обнаружено несколько лиц! Это серьёзное нарушение.');
           const now = Date.now();
-          if (now - lastMultipleFacesAtRef.current > 8000) {
+          // Strict: log violation every 3 seconds if multiple faces persist
+          if (now - lastMultipleFacesAtRef.current > 3000) {
             lastMultipleFacesAtRef.current = now;
             void logViolation({
               violation_type: 'multiple_faces',
               timestamp: new Date().toISOString(),
-              confidence: 0.8,
+              confidence: 0.95,
+              severity_score: 90,
               student_id: effectiveStudentId,
               exam_id: activeExamId,
             });
